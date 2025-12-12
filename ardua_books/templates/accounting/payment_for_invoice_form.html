@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Apply Payment to Invoice {{ invoice.invoice_number }}</h1>
+<p><strong>Client:</strong> {{ invoice.client.name }}</p>
+<p><strong>Outstanding Balance:</strong> {{ invoice.outstanding_balance }}</p>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+
+  <button class="btn btn-success" type="submit">Record Payment</button>
+</form>
+
+{% endblock %}

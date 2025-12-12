@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <h2>Clients</h2>
+
+    <p class="mb-3">
+      <a href="{% url 'billing:client_create' %}" class="btn btn-primary">New Client</a>
+      {% if request.GET.show_inactive %}
+        <a href="{% url 'billing:client_list' %}" class="btn btn-secondary">Hide inactive</a>
+      {% else %}
+        <a href="{% url 'billing:client_list' %}?show_inactive=1" class="btn btn-secondary">Show inactive</a>
+      {% endif %}
+    </p>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Default Rate</th>
+          <th>Terms (days)</th>
+          <th>Active?</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for client in clients %}
+          <tr>
+            <td><a href="{% url 'billing:client_detail' client.id %}">{{ client.name }}</a></td>
+            <td>{{ client.email }}</td>
+            <td>
+              {% if client.default_hourly_rate %}
+                {{ client.default_hourly_rate }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>{{ client.payment_terms_days }}</td>
+            <td>{{ client.is_active|yesno:"Yes,No" }}</td>
+            <td>
+              <a href="{% url 'billing:client_edit' client.pk %}" class="btn btn-secondary">Edit</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-muted">No clients defined yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

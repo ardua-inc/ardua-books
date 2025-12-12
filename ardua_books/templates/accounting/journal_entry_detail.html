@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load formatting %}
+{% block content %}
+<div class="container">
+  <h1>Journal Entry #{{ object.id }}</h1>
+
+  <p><strong>Posted:</strong> {{ object.posted_at }}<br>
+     <strong>Description:</strong> {{ object.description }}<br>
+     <strong>Source:</strong>
+        {% if object.source_object %}
+            {% if object.source_object.get_absolute_url %}
+                <a href="{{ object.source_object.get_absolute_url }}">
+                  {{ object.source_object }}
+               </a>
+            {% else %}
+              {{ object.source_object }}
+            {% endif %}
+        {% else %}
+            &mdash;
+        {% endif %}
+  </p>
+
+  <h2>Lines</h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="text-left">Account</th>
+        <th class="text-right">Debit</th>
+        <th class="text-right">Credit</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td class="text-left">{{ line.account.code }} {{ line.account.name }}</td>
+        <td class="text-right">{{ line.debit|currency }}</td>
+        <td class="text-right">{{ line.credit|currency }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p><a href="{% url 'accounting:journal_list' %}">Back to Journal</a></p>
+</div>
+{% endblock %}
+

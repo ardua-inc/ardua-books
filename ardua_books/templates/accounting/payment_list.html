@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Payments</h1>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Client</th>
+      <th>Amount</th>
+      <th>Unapplied</th>
+      <th></th>
+    </tr>
+  </thead>
+
+  {% for p in payments %}
+  <tr>
+    <td>{{ p.date }}</td>
+    <td>{{ p.client }}</td>
+    <td>{{ p.amount }}</td>
+    <td>{{ p.unapplied_amount }}</td>
+    <td><a href="{% url 'accounting:payment_detail' p.id %}">View</a></td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="5">No payments recorded.</td></tr>
+  {% endfor %}
+</table>
+
+{% endblock %}

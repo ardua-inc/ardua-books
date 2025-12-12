@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <h2>Delete Expense</h2>
+    <p>Are you sure you want to delete this expense?</p>
+
+    <p>
+      <strong>Date:</strong> {{ object.expense_date }}<br>
+      <strong>Amount:</strong> {{ object.amount }}<br>
+      <strong>Category:</strong> {{ object.category.name }}<br>
+      {% if object.client %}
+        <strong>Client:</strong> {{ object.client.name }}<br>
+      {% endif %}
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary">Yes, delete</button>
+      <a href="{% url 'billing:expense_detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+    </form>
+  </div>
+{% endblock %}

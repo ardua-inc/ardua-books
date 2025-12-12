@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Bank Accounts</h2>
+
+<p><a class="btn btn-primary" href="{% url 'accounting:bankaccount_create' %}">Add Bank Account</a></p>
+
+<table class="table table-striped">
+  <tr>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Balance</th>
+  </tr>
+  {% for acct in accounts %}
+  <tr>
+    <td>
+      <a href="{% url 'accounting:bankaccount_detail' acct.pk %}">
+        {{ acct.institution }} ({{ acct.account_number_masked }})
+      </a>
+    </td>
+    <td>{{ acct.get_type_display }}</td>
+    <td>${{ acct.balance|floatformat:2 }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+{% endblock %}

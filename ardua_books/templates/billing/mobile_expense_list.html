@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <h2>Expenses</h2>
+
+    {% if expenses %}
+      <ul class="mobile-list">
+        {% for expense in expenses %}
+          <li class="mobile-list-item">
+            <div class="mobile-list-main">
+              <div class="mobile-list-title">
+                {{ expense.expense_date|date:"m/d/Y" }} – {{ expense.client.name }}
+              </div>
+              <div class="mobile-list-sub">
+                {{ expense.category }} · {{ expense.amount }}
+                {% if expense.billable %}(billable){% endif %}
+              </div>
+              {% if expense.description %}
+                <div class="mobile-list-sub">
+                  {{ expense.description }}
+                </div>
+              {% endif %}
+            </div>
+            <div class="mobile-list-actions">
+              <a href="{% url 'billing:expense_edit' expense.pk %}"
+                 class="btn btn-secondary btn-sm">
+                Edit
+              </a>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No expenses yet.</p>
+    {% endif %}
+  </div>
+{% endblock %}
+

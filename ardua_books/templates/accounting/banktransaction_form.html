@@ -1,0 +1,56 @@
+<!-- templates/accounting/banktransaction_form.html -->
+{% extends "base.html" %}
+{% block content %}
+
+<h2>New Transaction for {{ bank_account }}</h2>
+
+{% if form.errors %}
+<div class="alert alert-danger">
+  {{ form.errors }}
+</div>
+{% endif %}
+
+<form method="post" hx-vals='{"bank_account": "{{ bank_account.account.id }}"}'>
+
+  {% csrf_token %}
+
+  <!-- DATE -->
+  <div class="mb-3">
+    <label for="id_date">Date:</label>
+    {{ form.date }}
+  </div>
+
+  <!-- DESCRIPTION -->
+  <div class="mb-3">
+    <label for="id_description">Description:</label>
+    {{ form.description }}
+  </div>
+
+  <!-- AMOUNT with HTMX -->
+  <div class="mb-3">
+    <label for="id_amount">Amount:</label>
+    <input 
+      type="number"
+      name="amount"
+      id="id_amount"
+      value="{{ form.amount.value|default_if_none:'' }}"
+      step="0.01"
+      class="form-control"
+      hx-get="{% url 'accounting:filter_offset_account' %}"
+      hx-trigger="change delay:200ms"
+      hx-target="#offset-account-container"
+      hx-include="#id_amount"
+      hx-vals='{"bank_account": "{{ bank_account.account.id }}"}'
+    >
+    <div class="form-text">Positive = deposit; Negative = withdrawal/charge</div>
+  </div>
+
+  <!-- OFFSET ACCOUNT: dynamically replaced by HTMX -->
+  <div id="offset-account-container" class="mb-3">
+    {% include "accounting/partials/offset_account_select.html" with accounts=form.fields.offset_account.queryset %}
+  </div>
+
+  <button class="btn btn-primary">Post Transaction</button>
+</form>
+
+{% endblock %}

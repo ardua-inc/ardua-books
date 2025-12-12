@@ -1,0 +1,43 @@
+i{% extends "base.html" %}
+{% load formatting %}
+{% block content %}
+<div class="container">
+
+  <h1>Income Statement</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="text-left account-col">Account</th>
+        <th class="text-right">Amount</th>
+      </tr>
+    </thead>
+
+    <tbody>
+    {% for acct in accounts %}
+      <tr>
+        <td class="text-left account-col">{{ acct.code }} - {{ acct.name }}</td>
+        <td class="text-right">{{ acct.balance|currency }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+
+    <tfoot>
+      <tr>
+        <th class="text-left">Total Revenue:</th>
+        <th class="text-right">{{ revenue_total|currency }}</th>
+      </tr>
+      <tr>
+        <th class="text-left">Total Expenses:</th>
+        <th class="text-right">{{ expense_total|currency }}</th>
+      </tr>
+      <tr>
+        <th class="text-left">Net Income:</th>
+        <th class="text-right">{{ net_income|currency }}</th>
+      </tr>
+    </tfoot>
+  </table>
+
+</div>
+{% endblock %}
+

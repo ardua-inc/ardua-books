@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <h2>Expenses</h2>
+
+    <p class="mb-3">
+      <a href="{% url 'billing:expense_create' %}" class="btn btn-primary">New Expense</a>
+    </p>
+
+    <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Client</th>
+            <th>Category</th>
+            <th>Amount</th>
+            <th>Billable</th>
+            <th>Status</th>
+            <th>Description</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in expenses %}
+            <tr>
+	      <td>{{ expense.expense_date|date:"m/d/Y" }}</td>
+              <td>{% if e.client %}{{ e.client.name }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+              <td>{{ e.category.name }}</td>
+              <td>{{ e.amount }}</td>
+              <td>{{ e.billable|yesno:"Yes,No" }}</td>
+              <td>{{ e.get_status_display }}</td>
+              <td>{{ e.description }}</td>
+              <td>
+                <a href="{% url 'billing:expense_edit' e.pk %}" class="btn btn-secondary">Edit</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="text-muted">No expenses recorded yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      
+  </div>
+{% endblock %}

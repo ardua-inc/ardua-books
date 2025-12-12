@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+*.pot
+*.pyc
+
+# Static and media files (collected)
+staticfiles/
+media/
+!media/.gitkeep
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# Project-specific exports and archives
+*.zip
+code_export*.txt
+
+# Draft documents
+*.docx
+
+# Temporary scripts (keep install_mac_dependencies.sh)
+create-django-project.sh
+docker_deploy_script.sh
+docker_run_migrations.sh
+export.sh
+sample-dot-env.txt

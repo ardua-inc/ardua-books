@@ -1,0 +1,35 @@
+{# templates/billing/timeentry_form.html #}
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <h2>
+      {% if object %}
+        Edit Time Entry
+      {% else %}
+        New Time Entry
+      {% endif %}
+    </h2>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <div class="form-grid">
+        {{ form.client.label_tag }} {{ form.client }}
+        {{ form.consultant.label_tag }} {{ form.consultant }}
+        {{ form.work_date.label_tag }} {{ form.work_date }}
+        {{ form.hours.label_tag }} {{ form.hours }}
+        {{ form.billing_rate.label_tag }} {{ form.billing_rate }}
+      </div>
+
+      <div class="form-block">
+        {{ form.description.label_tag }} {{ form.description }}
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'billing:timeentry_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+  </div>
+{% endblock %}
+

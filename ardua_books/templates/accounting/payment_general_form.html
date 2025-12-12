@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Record Payment</h1>
+
+<form method="post">
+    {% csrf_token %}
+
+    <fieldset>
+        <legend>Payment Details</legend>
+
+        {{ header_form.non_field_errors }}
+
+        <p>
+            {{ header_form.client.label_tag }}
+            {{ header_form.client }}
+
+            {# When client changes, fetch invoice rows via htmx #}
+            <script>
+            // ensure date/method defaults render before user interacts
+            </script>
+
+            <div
+                hx-get="{% url 'accounting:payment_invoice_fragment' %}"
+                hx-target="#invoice-rows"
+                hx-trigger="change from:#id_client"
+                hx-include="[name='client']"
+            ></div>
+        </p>
+
+        <p>{{ header_form.date.label_tag }} {{ header_form.date }}</p>
+        <p>{{ header_form.amount.label_tag }} {{ header_form.amount }}</p>
+        <p>{{ header_form.method.label_tag }} {{ header_form.method }}</p>
+        <p>{{ header_form.memo.label_tag }} {{ header_form.memo }}</p>
+    </fieldset>
+
+    <fieldset>
+        <legend>Apply to Invoices</legend>
+
+        {% if formset and formset.non_form_errors %}
+            <div class="alert alert-danger">
+                {% for err in formset.non_form_errors %}
+                    <div>{{ err }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div id="invoice-rows">
+            {% include "accounting/payment_invoice_rows.html" with invoices=invoices formset=formset %}
+        </div>
+    </fieldset>
+
+
+
+    <button type="submit" class="btn btn-success">Save Payment</button>
+</form>
+
+{% endblock %}

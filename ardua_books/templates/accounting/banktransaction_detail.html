@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Transaction Detail</h2>
+
+<p>
+  <a href="{% url 'accounting:bankaccount_register' txn.bank_account.id %}" class="btn btn-secondary btn-sm">
+    Back to Register
+  </a>
+</p>
+
+<table class="table table-bordered">
+  <tr>
+    <th>Bank Account</th>
+    <td>
+      <a href="{% url 'accounting:bankaccount_detail' txn.bank_account.id %}">
+        {{ txn.bank_account }}
+      </a>
+    </td>
+  </tr>
+
+  <tr>
+    <th>Date</th>
+    <td>{{ txn.date }}</td>
+  </tr>
+
+  <tr>
+    <th>Description</th>
+    <td>{{ txn.description }}</td>
+  </tr>
+
+  <tr>
+    <th>Amount</th>
+    <td>
+      {% if txn.amount < 0 %}
+        <span class="text-danger">-{{ withdrawal }}</span>
+      {% else %}
+        <span class="text-success">{{ deposit }}</span>
+      {% endif %}
+    </td>
+  </tr>
+
+  <tr>
+    <th>Offset Account</th>
+    <td>
+      {{ txn.offset_account.code }} — {{ txn.offset_account.name }}
+    </td>
+  </tr>
+
+  <tr>
+    <th>Journal Entry</th>
+    <td>
+      {% if txn.journal_entry %}
+        <a href="{% url 'accounting:journal_detail' txn.journal_entry.id %}">
+          JE #{{ txn.journal_entry.id }}
+        </a>
+      {% else %}
+        —
+      {% endif %}
+    </td>
+  </tr>
+</table>
+
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+  <h1>Reports</h1>
+
+  <ul style="font-size:1.25rem; line-height:2rem;">
+    <li><a href="{% url 'accounting:trial_balance' %}">Trial Balance</a></li>
+    <li><a href="{% url 'accounting:income_statement' %}">Income Statement</a></li>
+    <li><a href="{% url 'accounting:journal_list' %}">Journal Entries</a></li>
+    <li><a href="{% url 'accounting:ar_aging' %}">AR Aging Report</a></li>
+    <li><a href="{% url 'accounting:client_balance_summary' %}">Client Balances</a></li>
+
+  </ul>
+</div>
+{% endblock %}
+

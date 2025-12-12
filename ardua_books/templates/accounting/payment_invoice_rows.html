@@ -1,0 +1,42 @@
+{% if invoices %}
+    {{ formset.management_form }}
+
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Invoice</th>
+            <th>Date</th>
+            <th>Original</th>
+            <th>Outstanding</th>
+            <th>Apply</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for form in formset %}
+        <tr>
+            <td>
+                {{ form.invoice_id }}
+                {{ form.initial.invoice_number }}
+            </td>
+            <td>{{ form.initial.invoice_date|date:"m/d/Y" }}</td>
+            <td>{{ form.initial.original_amount }}</td>
+            <td>{{ form.initial.outstanding_balance }}</td>
+            <td>
+                {{ form.amount_to_apply }}
+
+                {% if form.amount_to_apply.errors %}
+                    <div class="text-danger">
+                        {% for err in form.amount_to_apply.errors %}
+                            <div>{{ err }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+
+        </tbody>
+    </table>
+{% else %}
+    <p>No outstanding invoices for this client.</p>
+{% endif %}

@@ -1,0 +1,98 @@
+{% load billing_math %}
+
+{% if not client %}
+  <p class="text-muted">
+    Select a client to view unbilled items.
+  </p>
+{% endif %}
+
+{% if not unbilled_time and not unbilled_expenses %}
+  <p class="text-muted">No unbilled time entries or expenses.</p>
+{% endif %}
+
+<!-- Select all toggle -->
+<p class="mb-2">
+  <label>
+    <input type="checkbox" id="select-all-unbilled">
+    Select all items
+  </label>
+</p>
+
+<table class="table table-striped table-sm">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Date</th>
+      <th>Type</th>
+      <th>Qty</th>
+      <th>Rate / Amount</th>
+      <th>Total</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- TIME ENTRIES -->
+    {% for te in unbilled_time %}
+      <tr>
+        <td>
+          <input type="checkbox" class="unbilled-item"
+                 name="time_ids" value="{{ te.id }}">
+        </td>
+        <td>{{ te.work_date }}</td>
+        <td>Time</td>
+        <td>{{ te.hours }}</td>
+        <td>{{ te.billing_rate }}</td>
+        <td>{{ te.hours|mul:te.billing_rate|floatformat:2 }}</td>
+        <td>{{ te.description }}</td>
+      </tr>
+    {% endfor %}
+
+    <!-- EXPENSES -->
+    {% for ex in unbilled_expenses %}
+      <tr>
+        <td>
+          <input type="checkbox" class="unbilled-item"
+                 name="expense_ids" value="{{ ex.id }}">
+        </td>
+        <td>{{ ex.expense_date }}</td>
+        <td>Expense</td>
+        <td>1</td>
+        <td>{{ ex.amount }}</td>
+        <td>{{ ex.amount|floatformat:2 }}</td>
+        <td>{{ ex.description }}</td>
+      </tr>
+    {% endfor %}
+
+  </tbody>
+
+  <!-- Subtotals -->
+  <tfoot>
+    <tr>
+      <th colspan="5" class="text-end">Total Time:</th>
+      <th>{{ total_time_value|floatformat:2 }}</th>
+      <th></th>
+    </tr>
+    <tr>
+      <th colspan="5" class="text-end">Total Expenses:</th>
+      <th>{{ total_expense_value|floatformat:2 }}</th>
+      <th></th>
+    </tr>
+    <tr>
+      <th colspan="5" class="text-end">Subtotal:</th>
+      <th>{{ subtotal|floatformat:2 }}</th>
+      <th></th>
+    </tr>
+  </tfoot>
+</table>
+
+<script>
+document.addEventListener("change", function (event) {
+    if (event.target.id === "select-all-unbilled") {
+        const checked = event.target.checked;
+        document.querySelectorAll(".unbilled-item").forEach(cb => {
+            cb.checked = checked;
+        });
+    }
+});
+</script>

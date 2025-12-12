@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block content %}
+<div class="container">
+  <h1>Trial Balance</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="text-left account-col">Account</th>
+        <th class="text-left account-col">Type</th>
+        <th class="text-right">Debit</th>
+        <th class="text-right">Credit</th>
+        <th class="text-right">Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for acct in accounts %}
+      <tr>
+	<td class="text-left account-col">{{ acct.code }} - {{ acct.name }}</td>
+        <td class="text-left type-col">{{ acct.get_type_display }}</td>
+        <td style="text-align:right;">{{ acct.debit_sum|currency }}</td>
+        <td style="text-align:right;">{{ acct.credit_sum|currency }}</td>
+        <td style="text-align:right;">{{ acct.balance|currency }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="2" style="text-align:right;">Totals:</th>
+        <th style="text-align:right;">{{ total_debits|currency }}</th>
+        <th style="text-align:right;">{{ total_credits|currency }}</th>
+        <th></th>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% endblock %}
+

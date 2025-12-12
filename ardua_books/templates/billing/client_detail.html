@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Client: {{ client.name }}</h1>
+
+<div class="mb-3">
+    <a href="{% url 'billing:client_edit' client.id %}" class="btn btn-primary btn-sm">Edit Client</a>
+    <a href="{% url 'billing:client_financial' client.id %}" class="btn btn-success btn-sm">Financial Summary</a>
+    <a href="{% url 'billing:invoice_create' %}?client={{ client.id }}" class="btn btn-secondary btn-sm">Create Invoice</a>
+</div>
+
+<hr>
+
+<h3>Client Information</h3>
+<table class="table table-sm w-auto">
+    <tr><th>Address:</th><td>{{ client.address|default:"—" }}</td></tr>
+    <tr><th>Email:</th><td>{{ client.email|default:"—" }}</td></tr>
+    <tr><th>Phone:</th><td>{{ client.phone|default:"—" }}</td></tr>
+    <tr><th>Notes:</th><td>{{ client.notes|default:"—" }}</td></tr>
+</table>
+
+<hr>
+
+<h3>Invoices</h3>
+
+{% if invoices %}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Invoice #</th>
+            <th>Issue Date</th>
+            <th>Due Date</th>
+            <th>Total</th>
+            <th>Paid</th>
+            <th>Outstanding</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for inv in invoices %}
+        <tr>
+            <td><a href="{{ inv.get_absolute_url }}">{{ inv.invoice_number }}</a></td>
+            <td>{{ inv.issue_date }}</td>
+            <td>{{ inv.due_date }}</td>
+            <td>{{ inv.total|floatformat:2 }}</td>
+            <td>{{ inv.applied_payments_total|floatformat:2 }}</td>
+            <td>{{ inv.outstanding_balance|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No invoices for this client.</p>
+{% endif %}
+
+{% endblock %}

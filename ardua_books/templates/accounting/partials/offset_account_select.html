@@ -1,0 +1,26 @@
+<label for="id_offset_account">Offset account:</label>
+
+<select name="offset_account" id="id_offset_account" class="form-select">
+    <option value="">---------</option>
+
+    {% if accounts %}
+
+        {% with groups=accounts|dictsort:"type" %}
+            {% regroup groups by type as grouped_accounts %}
+
+            {% for group in grouped_accounts %}
+                <optgroup label="{{ group.grouper|title }}">
+                    {% for acct in group.list %}
+                        <option value="{{ acct.id }}">
+                            {{ acct.code }} — {{ acct.name }}
+                        </option>
+                    {% endfor %}
+                </optgroup>
+            {% endfor %}
+
+        {% endwith %}
+
+    {% endif %}
+</select>
+
+<p class="form-text">Choose the category to offset this transaction</p>

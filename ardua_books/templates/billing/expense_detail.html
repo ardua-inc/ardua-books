@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <h2>Expense on {{ expense.expense_date }}</h2>
+
+    <p class="mb-2">
+      <strong>Client:</strong>
+      {% if expense.client %}
+        {{ expense.client.name }}
+      {% else %}
+        <span class="text-muted">None (not client-specific)</span>
+      {% endif %}
+      <br>
+      <strong>Category:</strong> {{ expense.category.name }}<br>
+      <strong>Amount:</strong> {{ expense.amount }}<br>
+      <strong>Billable:</strong> {{ expense.billable|yesno:"Yes,No" }}<br>
+      <strong>Status:</strong> {{ expense.get_status_display }}<br>
+    </p>
+
+    {% if expense.description %}
+      <p class="mt-2">
+        <strong>Description:</strong><br>
+        {{ expense.description }}
+      </p>
+    {% endif %}
+
+    {% if expense.receipt %}
+      <p class="mt-2">
+        <strong>Receipt:</strong>
+        <a href="{{ expense.receipt.url }}" target="_blank">View / Download</a>
+      </p>
+    {% else %}
+      <p class="mt-2 text-muted">No receipt attached.</p>
+    {% endif %}
+
+    <p class="mt-3">
+      <a href="{% url 'billing:expense_edit' expense.pk %}" class="btn btn-primary">Edit</a>
+      <a href="{% url 'billing:expense_delete' expense.pk %}" class="btn btn-secondary">Delete</a>
+      <a href="{% url 'billing:expense_list' %}" class="btn btn-secondary">Back to list</a>
+    </p>
+  </div>
+{% endblock %}

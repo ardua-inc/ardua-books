@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>{{ client.name }} – Financial Overview</h1>
+
+<h3>Summary</h3>
+<table class="table table-sm w-auto">
+    <tr>
+        <th>Outstanding A/R:</th>
+        <td>{{ outstanding_total|floatformat:2 }}</td>
+    </tr>
+    <tr>
+        <th>Unapplied Credits:</th>
+        <td>{{ unapplied_total|floatformat:2 }}</td>
+    </tr>
+    <tr>
+        <th>Net Position:</th>
+        <td>
+            {% if net_position > 0 %}
+                <span class="text-danger fw-bold">{{ net_position|floatformat:2 }}</span>
+            {% elif net_position < 0 %}
+                <span class="text-success fw-bold">{{ net_position|floatformat:2 }}</span>
+            {% else %}
+                <span class="text-muted">0.00</span>
+            {% endif %}
+        </td>
+    </tr>
+</table>
+
+<hr>
+
+<h3>Outstanding Invoices</h3>
+{% if outstanding_invoices %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Invoice</th>
+            <th>Issue</th>
+            <th>Due</th>
+            <th>Total</th>
+            <th>Applied</th>
+            <th>Outstanding</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in outstanding_invoices %}
+        <tr>
+            <td><a href="{{ row.invoice.get_absolute_url }}">{{ row.invoice.invoice_number }}</a></td>
+            <td>{{ row.invoice.issue_date }}</td>
+            <td>{{ row.invoice.due_date }}</td>
+            <td>{{ row.total|floatformat:2 }}</td>
+            <td>{{ row.applied|floatformat:2 }}</td>
+            <td>{{ row.outstanding|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No outstanding invoices.</p>
+{% endif %}
+
+<hr>
+
+<h3>Unapplied Payments / Credits</h3>
+{% if unapplied_payments %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Payment</th>
+            <th>Date</th>
+            <th>Method</th>
+            <th>Amount</th>
+            <th>Unapplied</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in unapplied_payments %}
+        <tr>
+            <td><a href="{% url 'accounting:payment_detail' p.id %}">Payment {{ p.id }}</a></td>
+            <td>{{ p.date }}</td>
+            <td>{{ p.get_method_display }}</td>
+            <td>{{ p.amount|floatformat:2 }}</td>
+            <td class="text-success">{{ p.unapplied_amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No unapplied credits.</p>
+{% endif %}
+
+<hr>
+
+<p>
+    <a href="{% url 'billing:invoice_create' %}?client={{ client.id }}" class="btn btn-primary">Create Invoice</a>
+    <a href="{% url 'accounting:payment_create_general' %}?client={{ client.id }}" class="btn btn-success">Record Payment</a>
+</p>
+
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <h2>Time Entries</h2>
+
+    {% if time_entries %}
+      <ul class="mobile-list">
+        {% for entry in time_entries %}
+          <li class="mobile-list-item">
+            <div class="mobile-list-main">
+              <div class="mobile-list-title">
+                {{ entry.work_date|date:"m/d/Y" }} – {{ entry.client.name }}
+              </div>
+              <div class="mobile-list-sub">
+                {{ entry.hours }}h · {{ entry.consultant }}
+              </div>
+              {% if entry.description %}
+                <div class="mobile-list-sub">
+                  {{ entry.description }}
+                </div>
+              {% endif %}
+            </div>
+            <div class="mobile-list-actions">
+              <a href="{% url 'billing:timeentry_edit' entry.pk %}"
+                 class="btn btn-secondary btn-sm">
+                Edit
+              </a>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No time entries yet.</p>
+    {% endif %}
+  </div>
+{% endblock %}
+

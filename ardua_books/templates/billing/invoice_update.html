@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load billing_math %}
+
+{% block content %}
+<h1>Edit Invoice {{ invoice.invoice_number }}</h1>
+
+<form method="post">
+  {% csrf_token %}
+
+  <h3>Invoice Details</h3>
+  <p><strong>Client:</strong> {{ invoice.client }}</p>
+
+  {{ form.non_field_errors }}
+  {{ form.invoice_number.label_tag }} {{ form.invoice_number }}
+  {{ form.issue_date.label_tag }} {{ form.issue_date }}
+  {{ form.due_date.label_tag }} {{ form.due_date }}
+  {{ form.notes.label_tag }} {{ form.notes }}
+
+  <hr>
+
+<h4>Attached Items</h4>
+<ul>
+  {% for line in attached_time %}
+    <li>Time: {{ line.description }} ({{ line.line_total }})</li>
+  {% endfor %}
+  {% for line in attached_expenses %}
+    <li>Expense: {{ line.description }} ({{ line.line_total }})</li>
+  {% endfor %}
+</ul>
+
+<hr>
+
+<h4>Unbilled Items</h4>
+{% include "billing/invoice_unbilled_fragment.html" with client=invoice.client.id unbilled_time=unbilled_time unbilled_expenses=unbilled_expenses %}
+
+  <hr>
+
+  <h4>General & Adjustment Lines</h4>
+
+  {{ formset.management_form }}
+
+  <table id="lineitem-table" class="table table-sm table-bordered align-middle">
+      <thead>
+          <tr>
+              <th style="width:140px;">Type</th>
+              <th>Description</th>
+              <th style="width:120px;">Price</th>
+              <th style="width:60px;">Delete?</th>
+          </tr>
+      </thead>
+      <tbody id="lineitem-body">
+          {% for f in formset.forms %}
+          <tr>
+              <td>{{ f.line_type }}</td>
+              <td>{{ f.description }}</td>
+              <td>{{ f.unit_price }}</td>
+              <td class="text-center">{{ f.DELETE }}</td>
+          </tr>
+          {% endfor %}
+      </tbody>
+  </table>
+
+  <button type="button" class="btn btn-secondary" id="add-row-btn">Add Row</button>
+  <button class="btn btn-primary">Save</button>
+  <a href="{% url 'billing:invoice_detail' invoice.pk %}" class="btn btn-secondary">Cancel</a>
+
+  <!-- INERT EMPTY-FORM TEMPLATE -->
+  <template id="empty-form-template">
+      <tr>
+          <td>{{ formset.empty_form.line_type }}</td>
+          <td>{{ formset.empty_form.description }}</td>
+          <td>{{ formset.empty_form.unit_price }}</td>
+          <td class="text-center">{{ formset.empty_form.DELETE }}</td>
+      </tr>
+  </template>
+
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const addBtn = document.getElementById("add-row-btn");
+    const tbody  = document.getElementById("lineitem-body");
+    const tmpl   = document.getElementById("empty-form-template");
+    const totalFormsEl = document.querySelector("input[name$='-TOTAL_FORMS']");
+
+    addBtn.addEventListener("click", function () {
+        const idx = parseInt(totalFormsEl.value, 10);
+
+        let html = tmpl.innerHTML.replace(/__prefix__/g, idx);
+        let row = document.createElement("tr");
+        row.innerHTML = html;
+
+        tbody.appendChild(row);
+
+        totalFormsEl.value = idx + 1;
+    });
+});
+</script>
+
+{% endblock %}

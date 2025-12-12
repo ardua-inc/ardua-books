@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+  <link rel="manifest" href="{% static 'pwa/manifest.json' %}">
+  <meta name="theme-color" content="#111827">
+
+  <!-- iOS PWA hints -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="{% static 'pwa/icons/icon-192.png' %}">
+  <script src="{% static 'pwa/register-sw.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h2>Mobile Capture</h2>
+    <p>Quickly record time and expenses from your phone.</p>
+
+    {# Anchor for "#time" – focuses near the Time button/form #}
+    <div id="time" class="mobile-actions">
+      <button id="btn-time" class="btn btn-primary">New Time Entry</button>
+      <button id="btn-expense" class="btn btn-secondary">New Expense</button>
+    </div>
+
+    {# Anchor for "#expense" – you can keep this just above the form area #}
+    <div id="expense"></div>
+
+    <div id="mobile-form-container"></div>
+    <div id="mobile-status" class="mobile-status"></div>
+  </div>
+
+  <script src="{% static 'pwa/mobile.js' %}"></script>
+{% endblock %}
+

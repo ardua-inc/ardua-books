@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Invoice {{ invoice.invoice_number }}</h1>
+
+<p>Status: <strong>{{ invoice.get_status_display }}</strong></p>
+
+<p>Client: {{ invoice.client }}</p>
+<p>Issue Date: {{ invoice.issue_date }}</p>
+<p>Due Date: {{ invoice.due_date }}</p>
+
+{% if invoice.notes %}
+  <p><strong>Notes:</strong> {{ invoice.notes|linebreaksbr }}</p>
+{% endif %}
+
+<h3>Line Items</h3>
+<table class="table">
+  <thead>
+    <tr>
+      <th>Type</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in invoice.lines.all %}
+    <tr>
+      <td>{{ line.get_line_type_display }}</td>
+      <td>{{ line.description }}</td>
+      <td>{{ line.quantity }}</td>
+      <td>{{ line.unit_price }}</td>
+      <td>{{ line.line_total|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h4>Totals</h4>
+<p>Subtotal: {{ invoice.subtotal }}</p>
+<p>Tax: {{ invoice.tax_total }}</p>
+<p>Total: {{ invoice.total }}</p>
+
+<hr>
+
+<h3>Actions</h3>
+{% if invoice.status == InvoiceStatus.DRAFT %}
+  <a class="btn btn-success" href="{% url 'billing:invoice_change_status' invoice.pk 'issue' %}">Issue Invoice</a>
+  <a class="btn btn-danger" href="{% url 'billing:invoice_change_status' invoice.pk 'void' %}">Void Invoice</a>
+  <a class="btn btn-primary" href="{% url 'billing:invoice_update' invoice.pk %}">Edit Invoice</a>
+
+{% elif invoice.status == InvoiceStatus.ISSUED %}
+  <a class="btn btn-primary" href="{% url 'billing:invoice_change_status' invoice.pk 'pay' %}">Mark Paid</a>
+
+  <a class="btn btn-warning"
+     href="{% url 'billing:invoice_change_status' invoice.pk 'return_to_draft' %}">
+      Return to Draft
+  </a>
+
+  <a class="btn btn-danger"
+     href="{% url 'billing:invoice_change_status' invoice.pk 'void' %}">Void Invoice</a>
+
+{% endif %}
+<a class="btn btn-secondary" href="{% url 'billing:invoice_print' invoice.pk %}" target="_blank">Print</a>
+<a class="btn btn-secondary" href="{% url 'billing:invoice_print_pdf' invoice.pk %}">Download PDF</a>
+
+
+<hr>
+
+<h3>Accounting History</h3>
+<ul>
+  {% for je in journal_entries %}
+    <li>
+      <a href="{% url 'accounting:journal_detail' je.id %}">
+        JE {{ je.id }}
+      </a>
+        -
+        {{ je.posted_at }} 
+        — {{ je.description }}
+    </li>
+  {% empty %}
+    <li>No entries</li>
+  {% endfor %}
+</ul>
+
+<hr>
+  <h3>Payments Applied</h3>
+    <table class="table">
+      <tr><th>Date</th><th>Amount</th></tr>
+      {% for app in invoice.paymentapplication_set.all %}
+      <tr>
+        <td>{{ app.payment.date }}</td>
+        <td>{{ app.amount }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="2">No payments applied</td></tr>
+      {% endfor %}
+    </table>
+
+    <p><strong>Outstanding Balance:</strong> {{ invoice.outstanding_balance }}</p>
+    <a class="btn btn-primary" href="{% url 'billing:payment_apply_invoice' invoice.id%}">Apply Payment</a>
+
+{% endblock %}
+

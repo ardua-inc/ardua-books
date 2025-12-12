@@ -1,0 +1,537 @@
+/* static/css/base.css */
+
+/* ---- Global reset-ish ---- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- Typography & layout ---- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #222;
+  background-color: #f5f5f7;
+}
+
+a {
+  color: #0b5ed7;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1, h2, h3 {
+  margin-top: 0;
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 1.2rem 0.5rem;
+}
+
+td, th {
+    padding: 0.2rem 0.8rem;
+}
+
+.text-right {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Main page container */
+.container {
+    max-width: 1200px;   /* or 1200px if you prefer */
+    margin: 20px auto 40px auto;
+    padding: 0 16px;
+}
+  
+
+/* ---- Header & navigation ---- */
+.app-header {
+  background-color: #1f2933;
+  color: #f9fafb;
+}
+
+.app-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-right: 2.5rem;
+}
+
+.app-nav {
+  display: flex;
+  gap: 1.75rem;              /* space between "Clients / Time / ..." */
+}
+
+.app-nav a {
+  color: #e5e7eb;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.app-nav a:hover {
+  color: #ffffff;
+}
+
+.app-nav-dropdown {
+  position: relative;
+}
+
+.app-nav-dropdown .dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  display: none;
+  background: black;
+  border: 1px solid #ccc;
+  padding: 0.5rem 0;
+  min-width: 180px;
+  z-index: 10;
+}
+
+.app-nav-dropdown .dropdown-menu a {
+  display: block;
+  padding: 0.25rem 0.75rem;
+  white-space: nowrap;
+}
+
+.app-nav-dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+/* ---- User menu dropdown ---- */
+
+.app-user-menu {
+  position: relative;
+  margin-left: auto;
+  display: inline-block;
+}
+
+/* Remove default disclosure triangle */
+.app-user-menu > summary {
+  list-style: none;
+  cursor: pointer;
+  color: #e5e7eb;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Hide the default disclosure arrow in most browsers */
+.app-user-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Extra belt-and-suspenders for other engines */
+.app-user-menu > summary::marker {
+  content: "";
+}
+
+/* Remove the custom caret we added earlier (delete any summary::after rule) */
+
+/* Dropdown panel */
+.app-user-dropdown {
+  position: absolute;
+  right: 0;
+  margin-top: 8px;
+  background-color: #111827;
+  border-radius: 4px;
+  min-width: 140px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  padding: 4px 0;
+  z-index: 1000;
+}
+
+/* Links inside dropdown */
+.app-user-dropdown a {
+  display: block;
+  padding: 6px 12px;
+  color: #e5e7eb;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.app-user-dropdown a:hover {
+  background-color: #374151;
+}
+
+/* Optional: login link when not authenticated */
+.app-login-link {
+  margin-left: 32px;
+}
+/* ---- Flash messages ---- */
+.messages {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.messages li {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  background-color: #e5f3ff;
+  border: 1px solid #b3daff;
+}
+
+/* ---- Cards / panels ---- */
+.card {
+  background-color: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+/* ---- Forms ---- */
+form {
+  max-width: 640px;
+}
+
+form p {
+  margin-bottom: 12px;
+}
+
+label {
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+textarea,
+select {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  font: inherit;
+  background-color: #ffffff;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #0b5ed7;
+  box-shadow: 0 0 0 1px rgba(11, 94, 215, 0.25);
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: #0b5ed7;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: #0a53be;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.btn-secondary:hover {
+  background-color: #d1d5db;
+}
+
+/* ---- Tables ---- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.table th,
+.table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table thead th {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+  background-color: #f3f4f6;
+}
+
+.table tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+/* ---- Utility spacing ---- */
+.mb-1 { margin-bottom: 4px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+
+/* ---- Small helpers ---- */
+.text-muted {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+
+.invoice-form,
+.invoice-create-form,
+.invoice-edit-form {
+  max-width: none;
+}
+
+.invoice-line-row {
+    align-items: flex-start;
+}
+
+.invoice-line-row td { 
+    vertical-align: top;
+}
+
+/* Invoice line type column */
+
+.invoice-line-type select {
+    min-width: 140px;
+}
+
+/* Invoice lines table: make description column wider */
+.invoice-lines-table .desc-col,
+.invoice-lines-table .invoice-line-desc {
+  width: 50%;
+}
+
+.invoice-line-desc textarea {
+  width: 100%;
+}
+
+/* Quantity and Rate numeric inputs */
+.invoice-lines-table .qty-col input[type="number"] {
+  width: 80px;
+}
+
+.invoice-lines-table .rate-col input[type="number"] {
+  width: 110px;
+}  
+
+/* ---- Mobile tweaks ---- */
+@media (max-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+
+  .app-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .app-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .app-nav a {
+    margin-left: 0;
+    padding: 4px 8px;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 0 12px;
+  }
+
+  form {
+    max-width: 100%;
+  }
+
+  .invoice-lines-table {
+    font-size: 0.9rem;
+  }
+}
+@media (max-width: 768px) {
+  .container {
+    max-width: 100%;
+    padding: 0 12px;
+  }
+
+  table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  th, td {
+    word-wrap: break-word;
+    padding: 4px 6px;
+  }
+
+  .app-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .app-nav {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+.mobile-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mobile-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 0.75rem;
+}
+
+.mobile-list-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-list-title {
+  font-weight: 600;
+  margin-bottom: 0.1rem;
+}
+
+.mobile-list-sub {
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.mobile-list-actions .btn {
+  white-space: nowrap;
+}
+
+/* spacing between columns */
+.account-col {
+    padding-right: 3rem;
+}
+
+.type-col {
+    padding-right: 3rem;
+}
+
+/* alignment helpers */
+.text-right {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.text-left {
+    text-align: left;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.lineitem-table td,
+.lineitem-table th {
+    vertical-align: top !important;
+}
+/* A responsive grid */
+.lineitem-grid {
+    display: grid;
+    grid-template-columns: 140px 1fr 120px 80px;
+    gap: 12px;
+    align-items: start;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.lineitem-grid .grid-header {
+    font-weight: bold;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #ccc;
+}
+
+.lineitem-grid .grid-cell input,
+.lineitem-grid .grid-cell select,
+.lineitem-grid .grid-cell textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Delete checkbox centered */
+.lineitem-grid .delete-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Full-width container for form-heavy pages */
+.container-wide {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+/* Block-level error box */
+.alert-danger {
+    background-color: #f8d7da;   /* light red background */
+    border: 1px solid #f5c2c7;   /* slightly darker border */
+    color: #842029;              /* dark red text */
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+/* Inline text error (for field-level or simple messages) */
+.text-danger {
+    color: #842029;              /* same dark red as alert text */
+    font-weight: 500;
+}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load billing_math billing_extras %}
+
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+<h1>
+  {% if invoice.invoice_number %}
+    Edit Invoice {{ invoice.invoice_number }}
+  {% else %}
+    New Invoice
+  {% endif %}
+</h1>
+
+{% if form.non_field_errors %}
+<div class="alert alert-danger">
+    {{ form.non_field_errors }}
+</div>
+{% endif %}
+
+<form method="post" class="invoice-form">
+  {% csrf_token %}
+
+  <!-- ========================== -->
+  <!-- Invoice Header Fields      -->
+  <!-- ========================== -->
+  <div class="mb-3">
+    {{ form.client.label_tag }}
+
+    {{ form.client }}
+
+    <div
+      hx-get="{% url 'billing:invoice_unbilled_fragment' %}"
+      hx-trigger="change from:#id_client"
+      hx-target="#unbilled-fragment"
+      hx-include="#id_client"
+    ></div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4">{{ form.issue_date.label_tag }}{{ form.issue_date }}</div>
+    <div class="col-md-4">{{ form.due_date.label_tag }}{{ form.due_date }}</div>
+    <div class="col-md-4">{{ form.status }}</div>
+  </div>
+
+  <div class="mb-3">
+    {{ form.notes.label_tag }}
+    {{ form.notes }}
+  </div>
+
+  <!-- ========================== -->
+  <!-- UNBILLED TIME / EXPENSES   -->
+  <!-- ========================== -->
+  <h4 class="mt-3">Unbilled Items</h4>
+  
+  <div id="unbilled-fragment"
+       hx-target="this"
+       hx-swap="innerHTML">
+  </div>
+
+  <hr>
+
+  <!-- ========================== -->
+  <!-- MANUAL LINE ITEMS          -->
+  <!-- ========================== -->
+  <h3>Manual Line Items (General / Adjustment)</h3>
+
+  {{ formset.management_form }}
+
+  <table id="lineitem-table" class="table table-sm table-bordered align-middle">
+      <thead>
+          <tr>
+              <th style="width:140px;">Type</th>
+              <th>Description</th>
+              <th style="width:120px;">Price</th>
+          </tr>
+      </thead>
+      <tbody id="lineitem-body">
+          {% for f in formset.forms %}
+          <tr>
+              <td>{{ f.line_type }}</td>
+              <td>{{ f.description }}</td>
+              <td>{{ f.unit_price }}</td>
+          </tr>
+          {% endfor %}
+      </tbody>
+  </table>
+
+  <button type="button" class="btn btn-secondary" id="add-row-btn">Add Row</button>
+  <button type="submit" class="btn btn-primary">Save Invoice</button>
+
+  <!-- INERT EMPTY-FORM TEMPLATE -->
+  <template id="empty-form-template">
+      <tr>
+          <td>{{ formset.empty_form.line_type }}</td>
+          <td>{{ formset.empty_form.description }}</td>
+          <td>{{ formset.empty_form.unit_price }}</td>
+      </tr>
+  </template>
+
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const addBtn = document.getElementById("add-row-btn");
+    const tbody  = document.getElementById("lineitem-body");
+    const tmpl   = document.getElementById("empty-form-template");
+    const totalFormsEl = document.querySelector("input[name$='-TOTAL_FORMS']");
+
+    addBtn.addEventListener("click", function () {
+        const idx = parseInt(totalFormsEl.value, 10);
+
+        let html = tmpl.innerHTML.replace(/__prefix__/g, idx);
+
+        let row = document.createElement("tr");
+        row.innerHTML = html;
+
+        tbody.appendChild(row);
+
+        totalFormsEl.value = idx + 1;
+    });
+});
+</script>
+
+
+{% endblock %}

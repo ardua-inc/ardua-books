@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Mark Transaction as Owner Equity</h2>
+
+<p>
+  You are marking the following transaction as <strong>Owner Equity</strong>:
+</p>
+
+<ul>
+  <li>Date: {{ txn.date }}</li>
+  <li>Description: {{ txn.description }}</li>
+  <li>Amount: {{ txn.amount }}</li>
+</ul>
+
+<form method="post">
+  {% csrf_token %}
+  <button class="btn btn-warning">Mark as Owner Equity</button>
+  <a href="{% url 'accounting:bankaccount_register' txn.bank_account.id %}"
+     class="btn btn-secondary">Cancel</a>
+</form>
+
+{% endblock %}

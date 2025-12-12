@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Invoices</h1>
+
+<a class="btn btn-success" href="{% url 'billing:invoice_create' %}">Create Invoice</a>
+
+<table class="table mt-3">
+  <thead>
+    <tr>
+      <th>#</th><th>Client</th><th>Status</th><th>Total</th><th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for inv in invoices %}
+    <tr>
+      <td><a href="{% url 'billing:invoice_detail' inv.pk %}">{{ inv.invoice_number }}</a></td>
+      <td>{{ inv.client }}</td>
+      <td>{{ inv.get_status_display }}</td>
+      <td>{{ inv.total }}</td>
+      <td>
+        {% if inv.status == InvoiceStatus.DRAFT %}
+          <a class="btn btn-primary" href="{% url 'billing:invoice_update' inv.pk %}">Edit</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
+

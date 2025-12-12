@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Transactions</h2>
+
+{% if bank_account %}
+<p>For account: <strong>{{ bank_account }}</strong></p>
+{% endif %}
+
+<table class="table">
+  <tr>
+    <th>Date</th>
+    <th>Description</th>
+    <th>Amount</th>
+  </tr>
+  {% for txn in transactions %}
+  <tr>
+    <td>{{ txn.date }}</td>
+    <td>{{ txn.description }}</td>
+    <td>{{ txn.amount }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+{% endblock %}

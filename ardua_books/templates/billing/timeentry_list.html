@@ -1,0 +1,52 @@
+{# templates/billing/timeentry_list.html #}
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <div class="card-header">
+      <h2>Time Entries</h2>
+      <a href="{% url 'billing:timeentry_create' %}" class="btn btn-primary">
+        New Time Entry
+      </a>
+    </div>
+
+    {% if time_entries %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Client</th>
+            <th>Consultant</th>
+            <th>Hours</th>
+            <TH>Status</TH>
+            <th>Description</th>
+            <th>Rate</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for entry in time_entries %}
+  	  <tr>
+    	    <td>{{ entry.work_date|date:"m/d/Y" }}</td>
+    	    <td>{{ entry.client.name }}</td>
+    	    <td>{{ entry.consultant }}</td>
+    	    <td>{{ entry.hours }}</td>
+    	    <td>{{ entry.get_status_display }}</td>
+          <td>{{ entry.description }}</td>
+    	    <td>{{ entry.billing_rate }}</td>
+    	    <td>
+      	      <a href="{% url 'billing:timeentry_edit' entry.pk %}"
+           	 class="btn btn-secondary btn-sm">
+        	Edit
+      	      </a>
+    	    </td>
+  	  </tr>
+	{% endfor %}
+	</tbody>
+      </table>
+    {% else %}
+      <p class="text-muted">No time entries yet.</p>
+    {% endif %}
+  </div>
+{% endblock %}
+

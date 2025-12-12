@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="card">
+    <h2>Log in</h2>
+
+    {% if form.errors %}
+      <p>Your username and password didn’t match. Please try again.</p>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-row">
+        <label for="{{ form.username.id_for_label }}">Username</label>
+        {{ form.username }}
+      </div>
+      <div class="form-row">
+        <label for="{{ form.password.id_for_label }}">Password</label>
+        {{ form.password }}
+      </div>
+      <button type="submit" class="btn btn-primary">Log in</button>
+    </form>
+  </div>
+{% endblock %}

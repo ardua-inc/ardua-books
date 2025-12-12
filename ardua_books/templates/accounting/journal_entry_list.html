@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load formatting %}
+{% block content %}
+<div class="container">
+  <h1>Journal Entries</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="text-left">ID</th>
+        <th class="text-left">Posted</th>
+        <th class="text-left">Description</th>
+        <th class="text-left">Source</th>
+        <th class="text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for e in object_list %}
+      <tr>
+        <td>{{ e.id }}</td>
+        <td>{{ e.posted_at }}</td>
+        <td>{{ e.description }}</td>
+        <td>
+          {% if e.source_object %}
+            {{ e.source_object }}
+          {% else %}
+            &mdash;
+          {% endif %}
+        </td>
+        <td class="text-right">
+          <a href="{% url 'accounting:journal_detail' e.id %}">View</a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">No journal entries yet</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+

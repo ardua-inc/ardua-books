@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Create Payment from Bank Transaction</h2>
+
+<p><strong>Transaction:</strong> {{ txn.date }} — {{ txn.description }} — {{ txn.amount }}</p>
+
+<form method="post">
+    {% csrf_token %}
+
+    <fieldset>
+        <legend>Payment Details</legend>
+
+        {{ header_form.non_field_errors }}
+
+        <div class="mb-3">
+            {{ header_form.client.label_tag }}
+            {{ header_form.client }}
+        </div>
+
+        <div
+            hx-get="{% url 'accounting:payment_invoice_fragment' %}"
+            hx-target="#invoice-rows"
+            hx-trigger="change from:#id_client"
+            hx-include="[name='client']"
+        ></div>
+
+        <div class="mb-3">
+            {{ header_form.date.label_tag }} {{ header_form.date }}
+        </div>
+
+        <div class="mb-3">
+            {{ header_form.amount.label_tag }} {{ header_form.amount }}
+        </div>
+
+        <div class="mb-3">
+            {{ header_form.method.label_tag }} {{ header_form.method }}
+        </div>
+
+        <div class="mb-3">
+            {{ header_form.memo.label_tag }} {{ header_form.memo }}
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Apply to Invoices</legend>
+
+        <div id="invoice-rows">
+            {% include "accounting/payment_invoice_rows.html" with invoices=invoices formset=formset %}
+        </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn-success">Save Payment</button>
+
+</form>
+
+{% endblock %}

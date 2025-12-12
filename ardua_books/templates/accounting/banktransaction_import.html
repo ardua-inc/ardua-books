@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Import CSV for {{ account }}</h2>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+
+  <div class="mb-3">
+    <label>CSV File</label>
+    {{ form.file }}
+  </div>
+
+  <div class="mb-3">
+    <label>Offset Account</label>
+    {{ form.offset_account }}
+  </div>
+
+  <button class="btn btn-primary">Import</button>
+</form>
+{% endblock %}

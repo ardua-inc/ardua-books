@@ -1,0 +1,21 @@
+
+{% extends "base.html" %}
+{% block content %}
+<h1>Accounts Receivable Aging</h1>
+{% for bucket, invoices in buckets.items %}
+<h2>{{ bucket }} Days</h2>
+<table class="table">
+  <tr><th>Invoice</th><th>Client</th><th>Due Date</th><th>Balance</th></tr>
+  {% for inv in invoices %}
+  <tr>
+    <td>{{ inv.invoice_number }}</td>
+    <td>{{ inv.client }}</td>
+    <td>{{ inv.due_date }}</td>
+    <td>{{ inv.outstanding_balance }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="4">None</td></tr>
+  {% endfor %}
+</table>
+{% endfor %}
+{% endblock %}

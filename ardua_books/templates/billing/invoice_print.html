@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Invoice {{ invoice.invoice_number }}</title>
+  <style>
+    body {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 12px;
+      margin: 40px;
+      color: #000;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+    .company-name {
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .invoice-title {
+      font-size: 24px;
+      font-weight: normal;
+    }
+    .bill-to-box {
+      border: 1px solid #000;
+      padding: 8px;
+      width: 260px;
+      margin-bottom: 24px;
+    }
+    .bill-to-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 4px 6px;
+    }
+    th {
+      font-weight: bold;
+      text-align: left;
+    }
+    .no-border td, .no-border th {
+      border: none;
+    }
+    .right {
+      text-align: right;
+    }
+    .total-row td {
+      font-weight: bold;
+    }
+    .receipt-page {
+      margin-top: 40px;
+      page-break-before: always;  /* each receipt on its own page after the invoice */
+    }
+
+    .receipt-embed {
+      margin-top: 12px;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <div class="company-name">Ardua, Inc</div>
+      <div>2795 E Comanche Drive</div>
+      <div>Salt Lake City, UT 84108</div>
+    </div>
+    <div class="invoice-title">Invoice</div>
+  </div>
+
+  <div class="bill-to-box">
+    <div class="bill-to-title">Bill To:</div>
+    <div>{{ invoice.client.name }}</div>
+    {% if invoice.client.billing_address %}
+      <div style="white-space: pre-line;">
+        {{ invoice.client.billing_address }}
+      </div>
+    {% endif %}
+  </div>
+
+  <table>
+    <tr>
+      <th>Date</th>
+      <th>Invoice No.</th>
+      <th>P.O. Number</th>
+      <th>Terms</th>
+      <th>Project</th>
+    </tr>
+    <tr>
+      <td>{{ invoice.issue_date }}</td>
+      <td>{{ invoice.invoice_number }}</td>
+      <td>&nbsp;</td>
+      <td>{{ invoice.client.payment_terms_days }} days</td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+
+  <table>
+    <tr>
+      <th>Item</th>
+      <th>Description</th>
+      <th>Quantity</th>
+      <th>Rate</th>
+      <th>Amount</th>
+    </tr>
+    {% for line in invoice.lines.all %}
+      <tr>
+        <td>
+          {% if line.line_type == "TIME" %}
+            JMR-FEES
+          {% elif line.line_type == "EXPENSE" %}
+            EXP
+          {% else %}
+            GEN
+          {% endif %}
+        </td>
+        <td>
+            {% if line.time_entry %}
+              {{ line.time_entry.work_date }} –
+            {% elif line.expense %}
+              {{ line.expense.expense_date }} –
+            {% endif %}
+            {{ line.description }}
+        </td>
+          
+        <td class="right">{{ line.quantity }}</td>
+        <td class="right">{{ line.unit_price }}</td>
+        <td class="right">{{ line.line_total }}</td>
+      </tr>
+    {% endfor %}
+    <tr class="total-row">
+      <td colspan="4" class="right">Total</td>
+      <td class="right">{{ invoice.total }}</td>
+    </tr>
+  </table>
+
+    <!-- Existing invoice table above -->
+
+    <!-- Receipts section -->
+    {% if embed_receipts %}
+      <h3 style="margin-top: 40px;">Receipts</h3>
+
+      {% with lines=invoice.lines.all %}
+        {% if lines %}
+          {% for line in lines %}
+            {% if line.expense and line.expense.receipt %}
+              <div class="receipt-page">
+                <h4>Receipt {{ forloop.counter }} – {{ line.expense.expense_date }}</h4>
+                <p>
+                  <strong>Description:</strong>
+                  {{ line.description }}
+                </p>
+                <p>
+                  <strong>Amount:</strong>
+                  {{ line.line_total }}
+                </p>
+                <p>
+                  <strong>Receipt file:</strong>
+                  <a href="{{ line.expense.receipt.url }}" target="_blank">
+                    {{ line.expense.receipt.name|default:"View receipt" }}
+                  </a>
+                </p>
+  
+                <div class="receipt-embed">
+                  {% with name=line.expense.receipt.name|lower %}
+                    {% if name|slice:"-4:" == ".pdf" %}
+                      <!-- PDF receipt: embed viewer -->
+                      <embed src="{{ line.expense.receipt.url }}" width="100%" height="600px">
+                    {% else %}
+                      <!-- Image receipt: show as an image with correct aspect ratio -->
+                      <img src="{{ line.expense.receipt.url }}"
+                           alt="Receipt image"
+                           style="max-width: 100%; height: auto;">
+                    {% endif %}
+                  {% endwith %}
+                </div>
+                
+              </div>
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          <p>No lines on this invoice.</p>
+        {% endif %}
+      {% endwith %}
+    {% endif %}
+
+
+</body>
+</html>

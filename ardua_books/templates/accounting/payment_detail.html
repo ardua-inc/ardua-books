@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Payment Detail</h1>
+
+<p><strong>Date:</strong> {{ payment.date }}</p>
+<p><strong>Client:</strong> {{ payment.client }}</p>
+<p><strong>Amount:</strong> {{ payment.amount }}</p>
+<p><strong>Method:</strong> {{ payment.get_method_display }}</p>
+<p><strong>Unapplied Amount:</strong> {{ payment.unapplied_amount }}</p>
+
+<h2>Applications</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Invoice</th>
+            <th>Amount Applied</th>
+            <th>Open Invoice</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for app in payment.applications.all %}
+        <tr>
+            <td>{{ app.invoice.invoice_number }}</td>
+            <td>{{ app.amount }}</td>
+            <td>
+                <a href="{% url 'billing:invoice_detail' app.invoice.id %}">
+                    View Invoice
+                </a>
+            </td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="3">No invoices applied</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+
+<p>
+  <a href="{% url 'accounting:payment_list' %}">Return to Payment List</a>
+</p>
+
+{% endblock %}
