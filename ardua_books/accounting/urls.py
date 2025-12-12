@@ -1,14 +1,5 @@
 from django.urls import path
 
-from .views_dashboard import ReportsHomeView
-
-from .views_reports import (
-    TrialBalanceView, 
-    IncomeStatementView, 
-    ARAgingView, 
-    ClientBalanceSummaryView,
-)
-
 from .views import (
     BankAccountListView,
     BankAccountCreateView,
@@ -29,6 +20,11 @@ from .views import (
     PaymentListView, 
     payment_invoice_fragment,
     OffsetAccountFilterView,
+    ReportsHomeView,
+    TrialBalanceView, 
+    IncomeStatementView, 
+    ARAgingView, 
+    ClientBalanceSummaryView,
 )
 
 app_name = "accounting"

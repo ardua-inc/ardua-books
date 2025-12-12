@@ -3,6 +3,14 @@ Accounting views package.
 
 Re-exports all views for backward compatibility with existing imports.
 """
+
+from accounting.views.reports_views import (
+    ReportsHomeView,
+    TrialBalanceView, 
+    IncomeStatementView, 
+    ARAgingView, 
+    ClientBalanceSummaryView,
+)
 from accounting.views.journal_views import (
     JournalEntryListView,
     JournalEntryDetailView,
@@ -56,4 +64,10 @@ __all__ = [
     "BankTransactionCSVImportView",
     "BankTransactionLinkPaymentView",
     "BankTransactionMarkOwnerEquityView",
+    # Report views
+    "ReportsHomeView",
+    "TrialBalanceView", 
+    "IncomeStatementView", 
+    "ARAgingView", 
+    "ClientBalanceSummaryView",
 ]

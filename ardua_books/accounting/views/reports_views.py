@@ -5,6 +5,9 @@ from django.views.generic import TemplateView
 from accounting.models import ChartOfAccount, JournalLine, AccountType, Payment, PaymentApplication
 from billing.models import Client, Invoice
 
+class ReportsHomeView(TemplateView):
+    template_name = "accounting/reports_home.html"
+
 class TrialBalanceView(TemplateView):
     template_name = "accounting/trial_balance.html"
 
