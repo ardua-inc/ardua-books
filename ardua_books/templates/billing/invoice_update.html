@@ -19,6 +19,44 @@
   <hr>
 
 <h4>Attached Items</h4>
+
+{% if invoice.status == "DRAFT" %}
+<table class="table table-sm table-bordered">
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Total</th>
+      <th style="width:90px;">Detach?</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    {% for line in attached_time %}
+    <tr>
+      <td>Time</td>
+      <td>{{ line.description }}</td>
+      <td>{{ line.line_total }}</td>
+      <td class="text-center">
+        <input type="checkbox" name="detach_ids" value="{{ line.id }}">
+      </td>
+    </tr>
+    {% endfor %}
+
+    {% for line in attached_expenses %}
+    <tr>
+      <td>Expense</td>
+      <td>{{ line.description }}</td>
+      <td>{{ line.line_total }}</td>
+      <td class="text-center">
+        <input type="checkbox" name="detach_ids" value="{{ line.id }}">
+      </td>
+    </tr>
+    {% endfor %}
+
+  </tbody>
+</table>
+{% else %}
 <ul>
   {% for line in attached_time %}
     <li>Time: {{ line.description }} ({{ line.line_total }})</li>
@@ -27,6 +65,8 @@
     <li>Expense: {{ line.description }} ({{ line.line_total }})</li>
   {% endfor %}
 </ul>
+{% endif %}
+
 
 <hr>
 

@@ -184,7 +184,10 @@ class InvoiceUpdateView(LoginRequiredMixin, UpdateView):
         attach_unbilled_items_to_invoice(invoice, time_ids, expense_ids)
 
         detach_ids = [int(x) for x in self.request.POST.getlist("detach_ids")]
-        detach_invoice_lines(invoice, detach_ids)
+        if detach_ids:
+            if invoice.status != InvoiceStatus.DRAFT:
+                raise ValidationError("Only draft invoices may detach line items.")
+            detach_invoice_lines(invoice, detach_ids)
 
         invoice.recalculate_totals()
         return redirect("billing:invoice_detail", pk=invoice.pk)
