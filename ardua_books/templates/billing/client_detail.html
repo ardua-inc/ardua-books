@@ -8,21 +8,65 @@
 
 <div class="mb-3">
     <a href="{% url 'billing:client_edit' client.id %}" class="btn btn-primary btn-sm">Edit Client</a>
-    <a href="{% url 'billing:client_financial' client.id %}" class="btn btn-success btn-sm">Financial Summary</a>
     <a href="{% url 'billing:invoice_create' %}?client={{ client.id }}" class="btn btn-secondary btn-sm">Create Invoice</a>
+    <a href="{% url 'accounting:payment_create_general' %}?client={{ client.id }}" class="btn btn-success btn-sm">Record Payment</a>
 </div>
 
-<hr>
+<div class="client-layout">
+    <div class="client-info-column">
+        <div class="card">
+            <h3>Client Information</h3>
+            <table class="info-table">
+                <tr><th>Address:</th><td>{{ client.address|default:"—" }}</td></tr>
+                <tr><th>Email:</th><td>{{ client.email|default:"—" }}</td></tr>
+                <tr><th>Phone:</th><td>{{ client.phone|default:"—" }}</td></tr>
+                <tr><th>Notes:</th><td>{{ client.notes|default:"—" }}</td></tr>
+            </table>
+        </div>
+    </div>
 
-<h3>Client Information</h3>
-<table class="table table-sm w-auto">
-    <tr><th>Address:</th><td>{{ client.address|default:"—" }}</td></tr>
-    <tr><th>Email:</th><td>{{ client.email|default:"—" }}</td></tr>
-    <tr><th>Phone:</th><td>{{ client.phone|default:"—" }}</td></tr>
-    <tr><th>Notes:</th><td>{{ client.notes|default:"—" }}</td></tr>
-</table>
+    <div class="financial-summary-column">
+        <div class="card financial-summary">
+            <h3>Financial Summary</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="summary-label">Outstanding A/R</span>
+                    <span class="summary-value {% if outstanding_total > 0 %}text-danger{% endif %}">
+                        ${{ outstanding_total|floatformat:2 }}
+                    </span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Unapplied Credits</span>
+                    <span class="summary-value {% if unapplied_total > 0 %}text-success{% endif %}">
+                        ${{ unapplied_total|floatformat:2 }}
+                    </span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Net Position</span>
+                    <span class="summary-value {% if net_position > 0 %}text-danger{% elif net_position < 0 %}text-success{% endif %}">
+                        ${{ net_position|floatformat:2 }}
+                    </span>
+                </div>
+            </div>
 
-<hr>
+            <div class="financial-actions">
+                {% if unapplied_count > 0 %}
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        hx-get="{% url 'billing:client_unapplied_payments' client.id %}"
+                        hx-target="#unapplied-payments-content"
+                        hx-swap="innerHTML">
+                    Show {{ unapplied_count }} unapplied payment{{ unapplied_count|pluralize }}
+                </button>
+                {% endif %}
+                <a href="{% url 'accounting:payment_list' %}?client={{ client.id }}" class="btn btn-sm btn-outline-secondary">
+                    View All Payments
+                </a>
+            </div>
+            <div id="unapplied-payments-content" class="unapplied-payments-content"></div>
+        </div>
+    </div>
+</div>
 
 <h3>Invoices</h3>
 
@@ -135,6 +179,100 @@
 {% endif %}
 
 <style>
+.client-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.client-info-column .card,
+.financial-summary-column .card {
+    height: 100%;
+}
+
+.client-info-column h3,
+.financial-summary h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    color: #374151;
+}
+
+.info-table {
+    width: 100%;
+}
+
+.info-table th {
+    width: 100px;
+    text-align: left;
+    padding: 0.25rem 0;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.info-table td {
+    padding: 0.25rem 0;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    text-align: center;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.summary-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.summary-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.text-danger {
+    color: #dc2626;
+}
+
+.text-success {
+    color: #059669;
+}
+
+.financial-actions {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-outline-secondary {
+    background: transparent;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.btn-outline-secondary:hover {
+    background: #f3f4f6;
+}
+
+.unapplied-payments-content {
+    margin-top: 1rem;
+}
+
+.unapplied-payments-content:empty {
+    display: none;
+}
+
 .invoice-filters {
     padding: 1rem;
     margin-bottom: 1.5rem;
@@ -252,6 +390,22 @@
 }
 
 @media (max-width: 900px) {
+    .client-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+        text-align: left;
+    }
+
+    .summary-item {
+        flex-direction: row;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
     .filter-row {
         flex-wrap: wrap;
     }

@@ -1,9 +1,11 @@
 """
 Payment management views.
 """
+from datetime import date
 from decimal import Decimal
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.forms import formset_factory
 from django.forms.utils import ErrorList
 from django.shortcuts import get_object_or_404, redirect, render
@@ -25,13 +27,103 @@ from accounting.models import (
 )
 from accounting.services.payment_allocation import build_formset
 from accounting.services.banking import BankTransactionService
-from billing.models import Invoice, InvoiceStatus
+from billing.models import Client, Invoice, InvoiceStatus
+
+
+# Pagination settings
+DEFAULT_PAGE_SIZE = 20
+PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 
 class PaymentListView(ListView):
     model = Payment
     template_name = "accounting/payment_list.html"
     context_object_name = "payments"
+    paginate_by = None  # We handle pagination manually
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by("-date")
+
+        # Client filter
+        client_id = self.request.GET.get("client")
+        if client_id:
+            qs = qs.filter(client_id=client_id)
+
+        # Date filtering
+        today = date.today()
+        date_preset = self.request.GET.get("date_preset", "")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        if date_preset == "ytd":
+            qs = qs.filter(date__gte=date(today.year, 1, 1))
+        elif date_preset == "mtd":
+            qs = qs.filter(date__gte=date(today.year, today.month, 1))
+        elif date_preset == "last_year":
+            qs = qs.filter(
+                date__gte=date(today.year - 1, 1, 1),
+                date__lt=date(today.year, 1, 1)
+            )
+        elif date_from or date_to:
+            if date_from:
+                qs = qs.filter(date__gte=date_from)
+            if date_to:
+                qs = qs.filter(date__lte=date_to)
+
+        # Unapplied filter - handled in get_context_data since it requires property access
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get filter values
+        client_id = self.request.GET.get("client", "")
+        date_preset = self.request.GET.get("date_preset", "")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+        show_filter = self.request.GET.get("show", "all")
+
+        # Get queryset and apply unapplied filter
+        payments = list(self.get_queryset())
+        if show_filter == "unapplied":
+            payments = [p for p in payments if p.unapplied_amount > 0]
+
+        # Pagination
+        page_size = self.request.GET.get("per_page", DEFAULT_PAGE_SIZE)
+        try:
+            page_size = int(page_size)
+            if page_size not in PAGE_SIZE_OPTIONS:
+                page_size = DEFAULT_PAGE_SIZE
+        except (ValueError, TypeError):
+            page_size = DEFAULT_PAGE_SIZE
+
+        paginator = Paginator(payments, page_size)
+        page_number = self.request.GET.get("page", 1)
+        page_obj = paginator.get_page(page_number)
+
+        # Client list for dropdown
+        clients = Client.objects.filter(is_active=True).order_by("name")
+
+        # Filtered client for header
+        filtered_client = None
+        if client_id:
+            filtered_client = Client.objects.filter(id=client_id).first()
+
+        context.update({
+            "payments": page_obj,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "clients": clients,
+            "client_filter": client_id,
+            "filtered_client": filtered_client,
+            "date_preset": date_preset,
+            "date_from": date_from,
+            "date_to": date_to,
+            "show_filter": show_filter,
+            "per_page": page_size,
+            "page_size_options": PAGE_SIZE_OPTIONS,
+        })
+        return context
 
 
 class PaymentDetailView(DetailView):
@@ -44,7 +136,11 @@ class PaymentCreateGeneralView(View):
     template_name = "accounting/payment_general_form.html"
 
     def get(self, request):
-        header_form = PaymentGeneralForm()
+        initial = {}
+        client_id = request.GET.get("client")
+        if client_id:
+            initial["client"] = client_id
+        header_form = PaymentGeneralForm(initial=initial)
         return render(request, self.template_name, {
             "header_form": header_form,
             "formset": None,

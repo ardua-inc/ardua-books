@@ -6,6 +6,7 @@ from datetime import date, timedelta, datetime
 from decimal import Decimal
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpResponse
@@ -20,6 +21,7 @@ from accounting.forms import (
     BankAccountForm,
     CSVImportForm,
     LinkPaymentToTransactionForm,
+    BankTransactionLinkExpenseForm,
 )
 from accounting.models import (
     ChartOfAccount,
@@ -381,3 +383,54 @@ class BankTransactionMarkOwnerEquityView(View):
 
         messages.success(request, "Transaction recorded as Owner Equity.")
         return redirect("accounting:bankaccount_register", pk=txn.bank_account_id)
+
+@login_required
+def banktransaction_link_expense(request, pk):
+    txn = get_object_or_404(BankTransaction, pk=pk)
+
+    # Hard guardrail
+    if txn.payment_id:
+        messages.error(request, "This transaction is already linked to a payment.")
+        return redirect("accounting:bankaccount_register", txn.bank_account.id)
+
+    if txn.expense_id:
+        messages.error(request, "This transaction is already linked to an expense.")
+        return redirect("accounting:bankaccount_register", txn.bank_account.id)
+
+    if request.method == "POST":
+        form = BankTransactionLinkExpenseForm(
+            request.POST,
+            transaction=txn,
+        )
+        if form.is_valid():
+            expense = form.cleaned_data["expense"]
+
+            # Defensive double-check
+            if expense.payment_account != txn.bank_account:
+                raise ValidationError("Expense account mismatch.")
+
+            txn.expense = expense
+            txn.offset_account = expense.category.account
+            txn.save()
+
+            messages.success(
+                request,
+                f"Transaction linked to expense “{expense.description}”."
+            )
+            return redirect(
+                "accounting:bankaccount_register",
+                txn.bank_account.id,
+            )
+    else:
+        form = BankTransactionLinkExpenseForm(
+            transaction=txn,
+        )
+
+    return render(
+        request,
+        "accounting/banktxn_link_expense.html",
+        {
+            "txn": txn,
+            "form": form,
+        },
+    )

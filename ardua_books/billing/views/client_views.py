@@ -2,8 +2,10 @@
 Client management views.
 """
 from datetime import date
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
@@ -108,6 +110,22 @@ class ClientDetailView(LoginRequiredMixin, DetailView):
         context["per_page"] = page_size
         context["page_size_options"] = PAGE_SIZE_OPTIONS
         context["invoice_statuses"] = InvoiceStatus.choices
+
+        # Financial summary data
+        all_invoices = Invoice.objects.filter(client=client)
+        outstanding_total = sum(inv.outstanding_balance() for inv in all_invoices)
+
+        payments = Payment.objects.filter(client=client)
+        unapplied_total = sum(p.unapplied_amount for p in payments)
+        unapplied_count = sum(1 for p in payments if p.unapplied_amount > 0)
+
+        net_position = outstanding_total - unapplied_total
+
+        context["outstanding_total"] = outstanding_total
+        context["unapplied_total"] = unapplied_total
+        context["unapplied_count"] = unapplied_count
+        context["net_position"] = net_position
+
         return context
 
 
@@ -118,41 +136,14 @@ class ClientUpdateView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy("billing:client_list")
 
 
-class ClientFinancialView(LoginRequiredMixin, DetailView):
-    model = Client
-    template_name = "billing/client_financial.html"
-    context_object_name = "client"
+@login_required
+def client_unapplied_payments(request, pk):
+    """HTMX endpoint for unapplied payments fragment."""
+    client = get_object_or_404(Client, pk=pk)
+    payments = Payment.objects.filter(client=client).order_by("-date")
+    unapplied_payments = [p for p in payments if p.unapplied_amount > 0]
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        client = self.object
-
-        invoices = Invoice.objects.filter(client=client).order_by("due_date")
-        outstanding_total = sum(inv.outstanding_balance() for inv in invoices)
-
-        payments = Payment.objects.filter(client=client).order_by("-date")
-        unapplied_total = sum(p.unapplied_amount for p in payments)
-
-        outstanding_invoices = [
-            {
-                "invoice": inv,
-                "total": inv.total,
-                "applied": inv.applied_payments_total(),
-                "outstanding": inv.outstanding_balance(),
-            }
-            for inv in invoices
-            if inv.outstanding_balance() > 0
-        ]
-
-        unapplied_payments = [p for p in payments if p.unapplied_amount > 0]
-        net_position = outstanding_total - unapplied_total
-
-        context.update({
-            "outstanding_total": outstanding_total,
-            "unapplied_total": unapplied_total,
-            "net_position": net_position,
-            "outstanding_invoices": outstanding_invoices,
-            "unapplied_payments": unapplied_payments,
-        })
-
-        return context
+    return render(request, "billing/partials/unapplied_payments.html", {
+        "client": client,
+        "unapplied_payments": unapplied_payments,
+    })

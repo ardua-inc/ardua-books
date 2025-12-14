@@ -12,6 +12,7 @@ from .views import (
     BankTransactionLinkPaymentView,
     BankTransactionMarkOwnerEquityView,
     BankTransactionCSVImportView,
+    banktransaction_link_expense,
     JournalEntryListView, 
     JournalEntryDetailView,
     PaymentCreateGeneralView, 
@@ -86,6 +87,12 @@ urlpatterns = [
         BankTransactionMarkOwnerEquityView.as_view(),
         name="banktransaction_mark_owner_equity",
     ),
+
+    path(
+        "bank-transaction/<int:pk>/link-expense/",
+        banktransaction_link_expense,
+        name="banktransaction_link_expense",
+   ),
     # CSV IMPORT SUPPORT
     path(
         "bank-accounts/<int:pk>/import/",

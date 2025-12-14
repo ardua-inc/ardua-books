@@ -8,7 +8,7 @@ from billing.views.client_views import (
     ClientCreateView,
     ClientDetailView,
     ClientUpdateView,
-    ClientFinancialView,
+    client_unapplied_payments,
 )
 
 from billing.views.time_entry_views import (
@@ -58,7 +58,7 @@ __all__ = [
     "ClientCreateView",
     "ClientDetailView",
     "ClientUpdateView",
-    "ClientFinancialView",
+    "client_unapplied_payments",
     # Time entry views
     "TimeEntryListView",
     "TimeEntryCreateView",

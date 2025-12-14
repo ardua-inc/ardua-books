@@ -2,7 +2,7 @@
 from django import forms
 from django.forms import formset_factory
 from .models import Payment, PaymentMethod, BankAccountType, ChartOfAccount, AccountType
-from billing.models import Client, Invoice
+from billing.models import Client, Invoice, Expense
 
 
 class PaymentForInvoiceForm(forms.ModelForm):
@@ -211,6 +211,28 @@ class BankTransactionForm(forms.Form):
 
         self.fields["offset_account"].queryset = qs.order_by("type", "code")
 
+class BankTransactionLinkExpenseForm(forms.Form):
+    expense = forms.ModelChoiceField(
+        queryset=Expense.objects.none(),
+        required=True,
+        label="Expense",
+    )
+
+    def __init__(self, *args, **kwargs):
+        txn = kwargs.pop("transaction")
+        super().__init__(*args, **kwargs)
+
+        # Candidate expenses:
+        # - Charged to this account
+        # - Not already matched to a bank transaction
+        # - Amount matches (abs)
+        self.fields["expense"].queryset = (
+            Expense.objects
+            .filter(payment_account=txn.bank_account)
+            .exclude(bank_transactions__isnull=False)
+            .filter(amount=abs(txn.amount))
+            .order_by("-date")
+        )
 
 class CSVImportForm(forms.Form):
     file = forms.FileField()

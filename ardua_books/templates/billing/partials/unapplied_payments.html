@@ -1,0 +1,26 @@
+{% if unapplied_payments %}
+<table class="table table-sm">
+    <thead>
+        <tr>
+            <th>Payment</th>
+            <th>Date</th>
+            <th>Method</th>
+            <th class="text-right">Amount</th>
+            <th class="text-right">Unapplied</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in unapplied_payments %}
+        <tr>
+            <td><a href="{% url 'accounting:payment_detail' p.id %}">Payment {{ p.id }}</a></td>
+            <td>{{ p.date }}</td>
+            <td>{{ p.get_method_display }}</td>
+            <td class="text-right">{{ p.amount|floatformat:2 }}</td>
+            <td class="text-right text-success">{{ p.unapplied_amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="text-muted">No unapplied payments or credits.</p>
+{% endif %}

@@ -124,6 +124,15 @@
                     Link Existing Payment…
                 </a>
                 </li>
+                {% if not txn.payment and not txn.expense %}
+                <li>
+                  <a class="dropdown-item"
+                    href="{% url 'accounting:banktransaction_link_expense' txn.id %}">
+                    Link Expense…
+                  </a>
+                </li>
+                {% endif %}
+
                 <li><hr class="dropdown-divider"></li>
                 <li>
                 <a class="dropdown-item text-warning"

@@ -6,7 +6,7 @@ from .views import (
     ClientCreateView,
     ClientDetailView,
     ClientUpdateView,
-    ClientFinancialView,
+    client_unapplied_payments,
 
     # time
     TimeEntryListView,
@@ -48,8 +48,7 @@ urlpatterns = [
     path("clients/new/", ClientCreateView.as_view(), name="client_create"),
     path("clients/<int:pk>/", ClientDetailView.as_view(), name="client_detail"),
     path("clients/<int:pk>/edit/", ClientUpdateView.as_view(), name="client_edit"),
-    path("clients/<int:pk>/financial/", ClientFinancialView.as_view(), name="client_financial"),
-
+    path("clients/<int:pk>/unapplied-payments/", client_unapplied_payments, name="client_unapplied_payments"),
 
     # time entries
     path("time-entries/", TimeEntryListView.as_view(), name="timeentry_list"),

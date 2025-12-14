@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Link Expense</h2>
+
+<p>
+  <strong>Transaction:</strong><br>
+  {{ txn.date }} — {{ txn.description }} — Amount: {{ txn.amount }}
+</p>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+
+  <button class="btn btn-primary">Link Expense</button>
+  <a href="{% url 'accounting:bankaccount_register' txn.bank_account.id %}"
+     class="btn btn-secondary">
+     Cancel
+  </a>
+</form>
+
+{% endblock %}

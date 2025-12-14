@@ -275,6 +275,14 @@ class BankTransaction(models.Model):
         null=True,
     )
 
+    expense = models.ForeignKey(
+        "billing.Expense",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="bank_transactions",
+    )
+
     payment = models.ForeignKey(
         "accounting.Payment",
         null=True,
