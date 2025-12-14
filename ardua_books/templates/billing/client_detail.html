@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block container_class %}container-wide{% endblock %}
+
 {% block content %}
 
 <h1>Client: {{ client.name }}</h1>
@@ -24,33 +26,291 @@
 
 <h3>Invoices</h3>
 
+<form method="get" class="invoice-filters card" id="filterForm">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label for="status">Status</label>
+            <select name="status" id="status" class="auto-submit">
+                <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active (excl. voided)</option>
+                <option value="draft" {% if status_filter == "draft" %}selected{% endif %}>Draft</option>
+                <option value="issued" {% if status_filter == "issued" %}selected{% endif %}>Issued</option>
+                <option value="paid" {% if status_filter == "paid" %}selected{% endif %}>Paid</option>
+                <option value="all" {% if status_filter == "all" %}selected{% endif %}>All (incl. voided)</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="date_preset">Date Range</label>
+            <select name="date_preset" id="date_preset" class="auto-submit">
+                <option value="" {% if not date_preset and not date_from %}selected{% endif %}>All time</option>
+                <option value="mtd" {% if date_preset == "mtd" %}selected{% endif %}>Month to date</option>
+                <option value="ytd" {% if date_preset == "ytd" %}selected{% endif %}>Year to date</option>
+                <option value="last_year" {% if date_preset == "last_year" %}selected{% endif %}>Last year</option>
+                <option value="custom" {% if date_from or date_to %}selected{% endif %}>Custom range</option>
+            </select>
+        </div>
+
+        <div class="date-range-group date-range-fields" id="customDateGroup">
+            <div class="filter-group">
+                <label for="date_from">From</label>
+                <input type="date" name="date_from" id="date_from" value="{{ date_from }}">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">To</label>
+                <input type="date" name="date_to" id="date_to" value="{{ date_to }}">
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <a href="{% url 'billing:client_detail' client.id %}" class="btn btn-secondary btn-sm">Clear</a>
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <label for="per_page">Per page</label>
+            <select name="per_page" id="per_page" class="auto-submit">
+                {% for size in page_size_options %}
+                <option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+    </div>
+</form>
+
 {% if invoices %}
 <table class="table table-striped">
     <thead>
         <tr>
             <th>Invoice #</th>
+            <th>Status</th>
             <th>Issue Date</th>
             <th>Due Date</th>
-            <th>Total</th>
-            <th>Paid</th>
-            <th>Outstanding</th>
+            <th class="text-right">Total</th>
+            <th class="text-right">Paid</th>
+            <th class="text-right">Outstanding</th>
         </tr>
     </thead>
     <tbody>
         {% for inv in invoices %}
         <tr>
             <td><a href="{{ inv.get_absolute_url }}">{{ inv.invoice_number }}</a></td>
+            <td><span class="status-badge status-{{ inv.status|lower }}">{{ inv.get_status_display }}</span></td>
             <td>{{ inv.issue_date }}</td>
             <td>{{ inv.due_date }}</td>
-            <td>{{ inv.total|floatformat:2 }}</td>
-            <td>{{ inv.applied_payments_total|floatformat:2 }}</td>
-            <td>{{ inv.outstanding_balance|floatformat:2 }}</td>
+            <td class="text-right">{{ inv.total|floatformat:2 }}</td>
+            <td class="text-right">{{ inv.applied_payments_total|floatformat:2 }}</td>
+            <td class="text-right">{{ inv.outstanding_balance|floatformat:2 }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
-{% else %}
-<p>No invoices for this client.</p>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="pagination-nav">
+    <div class="pagination-info">
+        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} invoices
+    </div>
+    <div class="pagination-controls">
+        {% if page_obj.has_previous %}
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" class="btn btn-sm btn-secondary">&laquo; First</a>
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-secondary">&lsaquo; Prev</a>
+        {% endif %}
+
+        <span class="pagination-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="btn btn-sm btn-secondary">Next &rsaquo;</a>
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}" class="btn btn-sm btn-secondary">Last &raquo;</a>
+        {% endif %}
+    </div>
+</nav>
 {% endif %}
+
+{% else %}
+<p>No invoices match the selected filters.</p>
+{% endif %}
+
+<style>
+.invoice-filters {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.date-range-group {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0;
+}
+
+.filter-group select,
+.filter-group input[type="date"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    width: 160px;
+    height: 34px;
+    box-sizing: border-box;
+}
+
+.filter-actions {
+    flex-direction: column;
+}
+
+.filter-actions .btn {
+    height: 34px;
+}
+
+.date-range-fields {
+    display: none;
+}
+
+.date-range-fields.show {
+    display: flex;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-draft {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-issued {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.status-paid {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-void {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.pagination-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid #e5e7eb;
+}
+
+.pagination-info {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.pagination-current {
+    padding: 0 0.75rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+@media (max-width: 900px) {
+    .filter-row {
+        flex-wrap: wrap;
+    }
+
+    .filter-group select,
+    .filter-group input[type="date"] {
+        width: 100%;
+        min-width: 140px;
+    }
+
+    .pagination-nav {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filterForm');
+    const presetSelect = document.getElementById('date_preset');
+    const dateRangeGroup = document.getElementById('customDateGroup');
+    const autoSubmitElements = document.querySelectorAll('.auto-submit');
+
+    function toggleCustomFields() {
+        const isCustom = presetSelect.value === 'custom' ||
+                         document.getElementById('date_from').value ||
+                         document.getElementById('date_to').value;
+        dateRangeGroup.classList.toggle('show', isCustom);
+    }
+
+    // Auto-submit on dropdown changes
+    autoSubmitElements.forEach(function(el) {
+        el.addEventListener('change', function() {
+            if (presetSelect.value === 'custom') {
+                // Don't auto-submit when switching to custom - wait for Apply
+                toggleCustomFields();
+            } else {
+                // Clear custom date fields when using presets
+                if (this.id === 'date_preset') {
+                    document.getElementById('date_from').value = '';
+                    document.getElementById('date_to').value = '';
+                }
+                form.submit();
+            }
+        });
+    });
+
+    // Handle preset change to custom specifically
+    presetSelect.addEventListener('change', function() {
+        if (this.value !== 'custom') {
+            document.getElementById('date_from').value = '';
+            document.getElementById('date_to').value = '';
+        }
+        toggleCustomFields();
+    });
+
+    toggleCustomFields();
+});
+</script>
 
 {% endblock %}

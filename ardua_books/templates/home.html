@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="home-page">
+  <h1>Welcome to Ardua Books</h1>
+
+  <div class="module-grid">
+
+    <section class="module-section">
+      <h2>Billing</h2>
+      <p class="module-desc">Track time, expenses, and invoice clients</p>
+
+      <div class="nav-cards">
+        <a href="{% url 'billing:client_list' %}" class="nav-card">
+          <div class="nav-card-title">Clients</div>
+          <div class="nav-card-desc">Manage client information and view account history</div>
+        </a>
+
+        <a href="{% url 'billing:timeentry_list' %}" class="nav-card">
+          <div class="nav-card-title">Time Entries</div>
+          <div class="nav-card-desc">Record and review billable time</div>
+        </a>
+
+        <a href="{% url 'billing:expense_list' %}" class="nav-card">
+          <div class="nav-card-title">Expenses</div>
+          <div class="nav-card-desc">Track reimbursable and business expenses</div>
+        </a>
+
+        <a href="{% url 'billing:invoice_list' %}" class="nav-card">
+          <div class="nav-card-title">Invoices</div>
+          <div class="nav-card-desc">Create and manage client invoices</div>
+        </a>
+      </div>
+    </section>
+
+    <section class="module-section">
+      <h2>Accounting</h2>
+      <p class="module-desc">Payments, banking, and financial reporting</p>
+
+      <div class="nav-cards">
+        <a href="{% url 'accounting:payment_list' %}" class="nav-card">
+          <div class="nav-card-title">Payments</div>
+          <div class="nav-card-desc">Record payments and view payment history</div>
+        </a>
+
+        <a href="{% url 'accounting:bankaccount_list' %}" class="nav-card">
+          <div class="nav-card-title">Bank Accounts</div>
+          <div class="nav-card-desc">Manage accounts and reconcile transactions</div>
+        </a>
+
+        <a href="{% url 'accounting:journal_list' %}" class="nav-card">
+          <div class="nav-card-title">General Ledger</div>
+          <div class="nav-card-desc">View journal entries and account activity</div>
+        </a>
+
+        <a href="{% url 'accounting:home' %}" class="nav-card">
+          <div class="nav-card-title">Reports</div>
+          <div class="nav-card-desc">Financial statements and analysis</div>
+        </a>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<style>
+.home-page h1 {
+  margin-bottom: 0.5rem;
+  color: #1f2933;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.module-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.module-section h2 {
+  margin: 0 0 0.25rem 0;
+  color: #1f2933;
+  font-size: 1.25rem;
+}
+
+.module-desc {
+  color: #6b7280;
+  margin: 0 0 1.25rem 0;
+  font-size: 0.9rem;
+}
+
+.nav-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.nav-card {
+  display: block;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  text-decoration: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.nav-card:hover {
+  border-color: #0b5ed7;
+  box-shadow: 0 2px 8px rgba(11, 94, 215, 0.1);
+  text-decoration: none;
+}
+
+.nav-card-title {
+  font-weight: 600;
+  color: #1f2933;
+  margin-bottom: 0.25rem;
+}
+
+.nav-card-desc {
+  font-size: 0.85rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .module-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-cards {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}

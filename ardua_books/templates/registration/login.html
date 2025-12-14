@@ -1,24 +1,99 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="card">
+<div class="auth-container">
+  <div class="auth-card">
     <h2>Log in</h2>
 
     {% if form.errors %}
-      <p>Your username and password didn’t match. Please try again.</p>
+      <p class="auth-error">Your username and password didn't match. Please try again.</p>
     {% endif %}
 
-    <form method="post">
+    <form method="post" class="auth-form">
       {% csrf_token %}
-      <div class="form-row">
+      <div class="auth-field">
         <label for="{{ form.username.id_for_label }}">Username</label>
-        {{ form.username }}
+        <input type="text" name="username" id="{{ form.username.id_for_label }}"
+               value="{{ form.username.value|default:'' }}" autocomplete="username" required>
       </div>
-      <div class="form-row">
+      <div class="auth-field">
         <label for="{{ form.password.id_for_label }}">Password</label>
-        {{ form.password }}
+        <input type="password" name="password" id="{{ form.password.id_for_label }}"
+               autocomplete="current-password" required>
       </div>
-      <button type="submit" class="btn btn-primary">Log in</button>
+      <button type="submit" class="btn btn-primary auth-submit">Log in</button>
     </form>
   </div>
+</div>
+
+<style>
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+}
+
+.auth-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 2.5rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  max-width: 360px;
+  width: 100%;
+}
+
+.auth-card h2 {
+  margin: 0 0 1.5rem 0;
+  color: #1f2933;
+  text-align: center;
+}
+
+.auth-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.auth-form {
+  max-width: none;
+}
+
+.auth-field {
+  margin-bottom: 1.25rem;
+}
+
+.auth-field label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.auth-field input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.auth-field input:focus {
+  outline: none;
+  border-color: #0b5ed7;
+  box-shadow: 0 0 0 3px rgba(11, 94, 215, 0.15);
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+</style>
 {% endblock %}

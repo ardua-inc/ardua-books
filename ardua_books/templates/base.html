@@ -29,6 +29,7 @@
       {% else %}
         {# Desktop nav: full functionality #}
         <nav class="app-nav">
+          <a href="{% url 'home' %}">Home</a>
           <a href="{% url 'billing:client_list' %}">Clients</a>
           <a href="{% url 'billing:timeentry_list' %}">Time</a>
           <a href="{% url 'billing:expense_list' %}">Expenses</a>

@@ -1,13 +1,20 @@
 """
 Client management views.
 """
+from datetime import date
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
-from billing.models import Client, Invoice
+from billing.models import Client, Invoice, InvoiceStatus
 from billing.forms import ClientForm
 from accounting.models import Payment
+
+
+# Default pagination settings (can be used as pattern for other views)
+DEFAULT_PAGE_SIZE = 20
+PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 
 class ClientListView(LoginRequiredMixin, ListView):
@@ -38,8 +45,69 @@ class ClientDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         client = self.object
-        invoices = Invoice.objects.filter(client=client).order_by("-issue_date")
-        context["invoices"] = invoices
+
+        # Base queryset
+        invoices = Invoice.objects.filter(client=client)
+
+        # Status filter
+        status_filter = self.request.GET.get("status", "active")
+        if status_filter == "draft":
+            invoices = invoices.filter(status=InvoiceStatus.DRAFT)
+        elif status_filter == "issued":
+            invoices = invoices.filter(status=InvoiceStatus.ISSUED)
+        elif status_filter == "paid":
+            invoices = invoices.filter(status=InvoiceStatus.PAID)
+        elif status_filter == "all":
+            pass  # Include everything, including voided
+        else:  # "active" - default: exclude voided
+            invoices = invoices.exclude(status=InvoiceStatus.VOID)
+
+        # Date filtering
+        today = date.today()
+        date_preset = self.request.GET.get("date_preset", "")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        if date_preset == "ytd":
+            invoices = invoices.filter(issue_date__gte=date(today.year, 1, 1))
+        elif date_preset == "mtd":
+            invoices = invoices.filter(issue_date__gte=date(today.year, today.month, 1))
+        elif date_preset == "last_year":
+            invoices = invoices.filter(
+                issue_date__gte=date(today.year - 1, 1, 1),
+                issue_date__lt=date(today.year, 1, 1)
+            )
+        elif date_from or date_to:
+            if date_from:
+                invoices = invoices.filter(issue_date__gte=date_from)
+            if date_to:
+                invoices = invoices.filter(issue_date__lte=date_to)
+
+        invoices = invoices.order_by("-issue_date")
+
+        # Pagination
+        page_size = self.request.GET.get("per_page", DEFAULT_PAGE_SIZE)
+        try:
+            page_size = int(page_size)
+            if page_size not in PAGE_SIZE_OPTIONS:
+                page_size = DEFAULT_PAGE_SIZE
+        except (ValueError, TypeError):
+            page_size = DEFAULT_PAGE_SIZE
+
+        paginator = Paginator(invoices, page_size)
+        page_number = self.request.GET.get("page", 1)
+        page_obj = paginator.get_page(page_number)
+
+        context["invoices"] = page_obj
+        context["page_obj"] = page_obj
+        context["paginator"] = paginator
+        context["status_filter"] = status_filter
+        context["date_preset"] = date_preset
+        context["date_from"] = date_from
+        context["date_to"] = date_to
+        context["per_page"] = page_size
+        context["page_size_options"] = PAGE_SIZE_OPTIONS
+        context["invoice_statuses"] = InvoiceStatus.choices
         return context
 
 

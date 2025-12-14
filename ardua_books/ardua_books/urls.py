@@ -1,17 +1,14 @@
 from django.contrib import admin
 from django.urls import path, include, re_path
-from django.shortcuts import redirect
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
 
-
-def root_redirect(request):
-    return redirect("billing:client_list")
+from . import views
 
 
 urlpatterns = [
-    path("", root_redirect, name="home"),
+    path("", views.home, name="home"),
     path("admin/", admin.site.urls),
     path("", include("billing.urls", namespace="billing")),
     path("accounts/", include("django.contrib.auth.urls")),

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+  <div class="auth-card">
+    <h2>You have been logged out</h2>
+    <p>Thank you for using Ardua Books.</p>
+    <a href="{% url 'login' %}" class="btn btn-primary">Log back in</a>
+  </div>
+</div>
+
+<style>
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+}
+
+.auth-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 2.5rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+}
+
+.auth-card h2 {
+  margin: 0 0 0.75rem 0;
+  color: #1f2933;
+}
+
+.auth-card p {
+  color: #6b7280;
+  margin: 0 0 1.5rem 0;
+}
+</style>
+{% endblock %}
