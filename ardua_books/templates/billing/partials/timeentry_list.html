@@ -1,0 +1,32 @@
+{% if entries %}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Consultant</th>
+            <th>Hours</th>
+            <th>Status</th>
+            <th>Description</th>
+            <th>Rate</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entry in entries %}
+        <tr>
+            <td>{{ entry.work_date|date:"m/d/Y" }}</td>
+            <td>{{ entry.consultant }}</td>
+            <td>{{ entry.hours }}</td>
+            <td>{{ entry.get_status_display }}</td>
+            <td>{{ entry.description|truncatewords:10 }}</td>
+            <td>${{ entry.billing_rate|floatformat:2 }}</td>
+            <td>
+                <a href="{% url 'billing:timeentry_edit' entry.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="text-muted">No time entries for this client.</p>
+{% endif %}

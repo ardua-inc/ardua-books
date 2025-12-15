@@ -1,0 +1,32 @@
+{% if expenses %}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Category</th>
+            <th>Amount</th>
+            <th>Billable</th>
+            <th>Status</th>
+            <th>Description</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for e in expenses %}
+        <tr>
+            <td><a href="{% url 'billing:expense_detail' e.pk %}">{{ e.expense_date|date:"m/d/Y" }}</a></td>
+            <td>{{ e.category.name }}</td>
+            <td>${{ e.amount|floatformat:2 }}</td>
+            <td>{{ e.billable|yesno:"Yes,No" }}</td>
+            <td>{{ e.get_status_display }}</td>
+            <td>{{ e.description|truncatewords:10 }}</td>
+            <td>
+                <a href="{% url 'billing:expense_edit' e.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="text-muted">No expenses for this client.</p>
+{% endif %}

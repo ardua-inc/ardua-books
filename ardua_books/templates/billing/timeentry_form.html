@@ -16,11 +16,33 @@
       {{ form.non_field_errors }}
 
       <div class="form-grid">
-        {{ form.client.label_tag }} {{ form.client }}
-        {{ form.consultant.label_tag }} {{ form.consultant }}
-        {{ form.work_date.label_tag }} {{ form.work_date }}
-        {{ form.hours.label_tag }} {{ form.hours }}
-        {{ form.billing_rate.label_tag }} {{ form.billing_rate }}
+        <div class="form-group">
+          {{ form.client.label_tag }}
+          <select name="client" id="id_client"
+                  hx-get="{% url 'billing:timeentry_client_entries' 0 %}"
+                  hx-trigger="change"
+                  hx-target="#client-entries"
+                  hx-swap="innerHTML">
+            <option value="">---------</option>
+            {% for choice in form.client.field.queryset %}
+            <option value="{{ choice.pk }}" {% if form.client.value|stringformat:"s" == choice.pk|stringformat:"s" %}selected{% endif %}>
+              {{ choice }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          {{ form.consultant.label_tag }} {{ form.consultant }}
+        </div>
+        <div class="form-group">
+          {{ form.work_date.label_tag }} {{ form.work_date }}
+        </div>
+        <div class="form-group">
+          {{ form.hours.label_tag }} {{ form.hours }}
+        </div>
+        <div class="form-group">
+          {{ form.billing_rate.label_tag }} {{ form.billing_rate }}
+        </div>
       </div>
 
       <div class="form-block">
@@ -31,5 +53,41 @@
       <a href="{% url 'billing:timeentry_list' %}" class="btn btn-secondary">Cancel</a>
     </form>
   </div>
-{% endblock %}
 
+  <div class="card mt-3">
+    <h3>Recent Time Entries{% if selected_client_id %} for this Client{% endif %}</h3>
+    <div id="client-entries">
+      {% if recent_entries %}
+        {% include "billing/partials/timeentry_list.html" with entries=recent_entries %}
+      {% else %}
+        <p class="text-muted">Select a client to see their recent time entries.</p>
+      {% endif %}
+    </div>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const clientSelect = document.getElementById('id_client');
+    if (clientSelect) {
+        clientSelect.addEventListener('htmx:configRequest', function(event) {
+            // Replace the 0 in the URL with the actual client ID
+            const clientId = this.value;
+            if (clientId) {
+                event.detail.path = event.detail.path.replace('/0/', '/' + clientId + '/');
+            } else {
+                // If no client selected, prevent the request
+                event.preventDefault();
+                document.getElementById('client-entries').innerHTML = '<p class="text-muted">Select a client to see their recent time entries.</p>';
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.mt-3 {
+    margin-top: 1rem;
+}
+</style>
+
+{% endblock %}

@@ -12,6 +12,7 @@ from .views import (
     TimeEntryListView,
     TimeEntryCreateView,
     TimeEntryUpdateView,
+    timeentry_client_entries,
 
     # expenses
     ExpenseListView,
@@ -19,6 +20,7 @@ from .views import (
     ExpenseDetailView,
     ExpenseUpdateView,
     ExpenseDeleteView,
+    expense_client_entries,
 
     # invoices
     InvoiceListView,
@@ -54,6 +56,7 @@ urlpatterns = [
     path("time-entries/", TimeEntryListView.as_view(), name="timeentry_list"),
     path("time-entries/new/", TimeEntryCreateView.as_view(), name="timeentry_create"),
     path("time-entries/<int:pk>/edit/", TimeEntryUpdateView.as_view(), name="timeentry_edit"),
+    path("time-entries/by-client/<int:client_id>/", timeentry_client_entries, name="timeentry_client_entries"),
 
     # expenses
     path("expenses/", ExpenseListView.as_view(), name="expense_list"),
@@ -61,6 +64,7 @@ urlpatterns = [
     path("expenses/<int:pk>/", ExpenseDetailView.as_view(), name="expense_detail"),
     path("expenses/<int:pk>/edit/", ExpenseUpdateView.as_view(), name="expense_edit"),
     path("expenses/<int:pk>/delete/", ExpenseDeleteView.as_view(), name="expense_delete"),
+    path("expenses/by-client/<int:client_id>/", expense_client_entries, name="expense_client_entries"),
 
     # invoices
     path("invoices/", views.InvoiceListView.as_view(), name="invoice_list"),

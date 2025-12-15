@@ -15,6 +15,7 @@ from billing.views.time_entry_views import (
     TimeEntryListView,
     TimeEntryCreateView,
     TimeEntryUpdateView,
+    timeentry_client_entries,
 )
 
 from billing.views.expense_views import (
@@ -23,6 +24,7 @@ from billing.views.expense_views import (
     ExpenseDetailView,
     ExpenseUpdateView,
     ExpenseDeleteView,
+    expense_client_entries,
 )
 
 from billing.views.invoice_views import (
@@ -63,12 +65,14 @@ __all__ = [
     "TimeEntryListView",
     "TimeEntryCreateView",
     "TimeEntryUpdateView",
+    "timeentry_client_entries",
     # Expense views
     "ExpenseListView",
     "ExpenseCreateView",
     "ExpenseDetailView",
     "ExpenseUpdateView",
     "ExpenseDeleteView",
+    "expense_client_entries",
     # Invoice views
     "InvoiceListView",
     "InvoiceDetailView",
