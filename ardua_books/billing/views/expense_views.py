@@ -1,25 +1,113 @@
 """
 Expense management views.
 """
+from datetime import date, timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse, reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DetailView, DeleteView
+from django.views.generic import ListView, CreateView, UpdateView, DetailView, DeleteView, TemplateView
 
-from billing.models import Client, Expense
+from billing.models import Client, Expense, ExpenseCategory, BillableStatus
 from billing.forms import ExpenseForm
 
 
-class ExpenseListView(LoginRequiredMixin, ListView):
-    model = Expense
+class ExpenseListView(LoginRequiredMixin, TemplateView):
     template_name = "billing/expense_list.html"
-    context_object_name = "expenses"
 
-    def get_queryset(self):
-        qs = super().get_queryset()
-        return qs.select_related("client", "category").order_by("-expense_date", "-created_at")
+    DEFAULT_PAGE_SIZE = 25
+    PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = date.today()
+
+        # Get filter parameters
+        client_filter = self.request.GET.get("client", "")
+        category_filter = self.request.GET.get("category", "")
+        status_filter = self.request.GET.get("status", "")
+        billable_filter = self.request.GET.get("billable", "")
+        date_preset = self.request.GET.get("date_preset", "")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        # Build queryset
+        qs = Expense.objects.select_related("client", "category").order_by("-expense_date", "-created_at")
+
+        # Apply filters
+        if client_filter:
+            qs = qs.filter(client_id=client_filter)
+        if category_filter:
+            qs = qs.filter(category_id=category_filter)
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        if billable_filter:
+            qs = qs.filter(billable=(billable_filter == "yes"))
+
+        # Determine date range
+        if date_preset == "mtd":
+            from_date = today.replace(day=1)
+            to_date = today
+        elif date_preset == "ytd":
+            from_date = today.replace(month=1, day=1)
+            to_date = today
+        elif date_preset == "last_year":
+            from_date = date(today.year - 1, 1, 1)
+            to_date = date(today.year - 1, 12, 31)
+        elif date_preset == "last30":
+            from_date = today - timedelta(days=30)
+            to_date = today
+        elif date_preset == "last90":
+            from_date = today - timedelta(days=90)
+            to_date = today
+        elif date_from or date_to:
+            from_date = date.fromisoformat(date_from) if date_from else None
+            to_date = date.fromisoformat(date_to) if date_to else None
+            date_preset = ""
+        else:
+            from_date = None
+            to_date = None
+
+        # Apply date filters
+        if from_date:
+            qs = qs.filter(expense_date__gte=from_date)
+        if to_date:
+            qs = qs.filter(expense_date__lte=to_date)
+
+        # Pagination
+        page_size = self.request.GET.get("per_page", self.DEFAULT_PAGE_SIZE)
+        try:
+            page_size = int(page_size)
+            if page_size not in self.PAGE_SIZE_OPTIONS:
+                page_size = self.DEFAULT_PAGE_SIZE
+        except (ValueError, TypeError):
+            page_size = self.DEFAULT_PAGE_SIZE
+
+        paginator = Paginator(qs, page_size)
+        page_number = self.request.GET.get("page", 1)
+        page_obj = paginator.get_page(page_number)
+
+        ctx.update({
+            "expenses": page_obj,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "clients": Client.objects.all().order_by("name"),
+            "categories": ExpenseCategory.objects.all().order_by("name"),
+            "client_filter": client_filter,
+            "category_filter": category_filter,
+            "status_choices": BillableStatus.choices,
+            "status_filter": status_filter,
+            "billable_filter": billable_filter,
+            "date_preset": date_preset,
+            "date_from": date_from if not date_preset else "",
+            "date_to": date_to if not date_preset else "",
+            "per_page": page_size,
+            "page_size_options": self.PAGE_SIZE_OPTIONS,
+        })
+        return ctx
 
 
 class ExpenseCreateView(LoginRequiredMixin, CreateView):
@@ -88,6 +176,11 @@ class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
     form_class = ExpenseForm
     template_name = "billing/expense_form.html"
     success_url = reverse_lazy("billing:expense_list")
+
+    def get_queryset(self):
+        # Only allow editing non-billed expenses
+        qs = super().get_queryset()
+        return qs.exclude(status=BillableStatus.BILLED)
 
     def form_valid(self, form):
         if form.cleaned_data.get("billable") and not form.cleaned_data.get("client"):
