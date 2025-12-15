@@ -171,6 +171,12 @@ class InvoiceUpdateView(LoginRequiredMixin, UpdateView):
         formset = UpdateInvoiceLineFormSet(
             self.request.POST,
             instance=invoice,
+            queryset=invoice.lines.filter(
+                line_type__in=[
+                    InvoiceLine.LineType.GENERAL,
+                    InvoiceLine.LineType.ADJUSTMENT,
+                ]
+            ),
             prefix="lines",
         )
         if not formset.is_valid():

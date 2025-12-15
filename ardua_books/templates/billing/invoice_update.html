@@ -91,6 +91,7 @@
       <tbody id="lineitem-body">
           {% for f in formset.forms %}
           <tr>
+              {{ f.id }}
               <td>{{ f.line_type }}</td>
               <td>{{ f.description }}</td>
               <td>{{ f.unit_price }}</td>
