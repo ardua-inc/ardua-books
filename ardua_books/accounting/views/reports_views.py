@@ -1,5 +1,5 @@
-from datetime import date
-from django.db.models import Sum, Case, When, F, DecimalField
+from datetime import date, timedelta
+from django.db.models import Sum, Case, When, F, DecimalField, Q
 from django.views.generic import TemplateView
 
 from accounting.models import ChartOfAccount, JournalLine, AccountType, Payment, PaymentApplication
@@ -13,20 +13,56 @@ class TrialBalanceView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        today = date.today()
+
+        # Get date filter parameters
+        date_preset = self.request.GET.get("date_preset", "")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        # Determine date range
+        if date_preset == "mtd":
+            from_date = today.replace(day=1)
+            to_date = today
+        elif date_preset == "ytd":
+            from_date = today.replace(month=1, day=1)
+            to_date = today
+        elif date_preset == "last_month":
+            first_of_month = today.replace(day=1)
+            last_month_end = first_of_month - timedelta(days=1)
+            from_date = last_month_end.replace(day=1)
+            to_date = last_month_end
+        elif date_preset == "last_year":
+            from_date = date(today.year - 1, 1, 1)
+            to_date = date(today.year - 1, 12, 31)
+        elif date_from or date_to:
+            from_date = date.fromisoformat(date_from) if date_from else None
+            to_date = date.fromisoformat(date_to) if date_to else None
+            date_preset = ""
+        else:
+            from_date = None
+            to_date = None
+
+        # Build date filter for journal lines
+        date_filter = Q()
+        if from_date:
+            date_filter &= Q(journalline__journal_entry__entry_date__gte=from_date)
+        if to_date:
+            date_filter &= Q(journalline__journal_entry__entry_date__lte=to_date)
 
         accounts = (
             ChartOfAccount.objects.all()
             .annotate(
                 debit_sum=Sum(
                     Case(
-                        When(journalline__debit__gt=0, then=F("journalline__debit")),
+                        When(date_filter & Q(journalline__debit__gt=0), then=F("journalline__debit")),
                         default=0,
                         output_field=DecimalField(),
                     )
                 ),
                 credit_sum=Sum(
                     Case(
-                        When(journalline__credit__gt=0, then=F("journalline__credit")),
+                        When(date_filter & Q(journalline__credit__gt=0), then=F("journalline__credit")),
                         default=0,
                         output_field=DecimalField(),
                     )
@@ -51,6 +87,11 @@ class TrialBalanceView(TemplateView):
                 "accounts": accounts,
                 "total_debits": total_debits,
                 "total_credits": total_credits,
+                "date_preset": date_preset,
+                "date_from": date_from if not date_preset else "",
+                "date_to": date_to if not date_preset else "",
+                "from_date": from_date,
+                "to_date": to_date,
             }
         )
         return context
@@ -60,6 +101,42 @@ class IncomeStatementView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        today = date.today()
+
+        # Get date filter parameters
+        date_preset = self.request.GET.get("date_preset", "")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        # Determine date range
+        if date_preset == "mtd":
+            from_date = today.replace(day=1)
+            to_date = today
+        elif date_preset == "ytd":
+            from_date = today.replace(month=1, day=1)
+            to_date = today
+        elif date_preset == "last_month":
+            first_of_month = today.replace(day=1)
+            last_month_end = first_of_month - timedelta(days=1)
+            from_date = last_month_end.replace(day=1)
+            to_date = last_month_end
+        elif date_preset == "last_year":
+            from_date = date(today.year - 1, 1, 1)
+            to_date = date(today.year - 1, 12, 31)
+        elif date_from or date_to:
+            from_date = date.fromisoformat(date_from) if date_from else None
+            to_date = date.fromisoformat(date_to) if date_to else None
+            date_preset = ""
+        else:
+            from_date = None
+            to_date = None
+
+        # Build date filter for journal lines
+        date_filter = Q()
+        if from_date:
+            date_filter &= Q(journalline__journal_entry__entry_date__gte=from_date)
+        if to_date:
+            date_filter &= Q(journalline__journal_entry__entry_date__lte=to_date)
 
         accounts = (
             ChartOfAccount.objects.filter(
@@ -68,14 +145,14 @@ class IncomeStatementView(TemplateView):
             .annotate(
                 debit_sum=Sum(
                     Case(
-                        When(journalline__debit__gt=0, then=F("journalline__debit")),
+                        When(date_filter & Q(journalline__debit__gt=0), then=F("journalline__debit")),
                         default=0,
                         output_field=DecimalField(),
                     )
                 ),
                 credit_sum=Sum(
                     Case(
-                        When(journalline__credit__gt=0, then=F("journalline__credit")),
+                        When(date_filter & Q(journalline__credit__gt=0), then=F("journalline__credit")),
                         default=0,
                         output_field=DecimalField(),
                     )
@@ -88,21 +165,27 @@ class IncomeStatementView(TemplateView):
         for a in accounts:
             a.balance = (a.debit_sum or 0) - (a.credit_sum or 0)
 
-        revenue_total = sum(
-            a.balance for a in accounts if a.type == AccountType.INCOME
-        )
-        expense_total = sum(
-            a.balance for a in accounts if a.type == AccountType.EXPENSE
-        )
+        # Separate revenue and expense accounts
+        revenue_accounts = [a for a in accounts if a.type == AccountType.INCOME]
+        expense_accounts = [a for a in accounts if a.type == AccountType.EXPENSE]
+
+        revenue_total = sum(a.balance for a in revenue_accounts)
+        expense_total = sum(a.balance for a in expense_accounts)
 
         net_income = revenue_total - expense_total
 
         context.update(
             {
-                "accounts": accounts,
+                "revenue_accounts": revenue_accounts,
+                "expense_accounts": expense_accounts,
                 "revenue_total": revenue_total,
                 "expense_total": expense_total,
                 "net_income": net_income,
+                "date_preset": date_preset,
+                "date_from": date_from if not date_preset else "",
+                "date_to": date_to if not date_preset else "",
+                "from_date": from_date,
+                "to_date": to_date,
             }
         )
 
@@ -176,24 +259,47 @@ class ARAgingView(TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         today = date.today()
+
+        # Get client filter
+        client_filter = self.request.GET.get("client", "")
+
+        # Build base queryset
+        invoices = Invoice.objects.select_related("client").all()
+        if client_filter:
+            invoices = invoices.filter(client_id=client_filter)
+
         buckets = {
-            "0-30": [],
-            "31-60": [],
-            "61-90": [],
-            "90+": []
+            "current": {"label": "Current (0-30 days)", "invoices": [], "total": 0},
+            "31-60": {"label": "31-60 Days", "invoices": [], "total": 0},
+            "61-90": {"label": "61-90 Days", "invoices": [], "total": 0},
+            "over_90": {"label": "Over 90 Days", "invoices": [], "total": 0},
         }
-        for inv in Invoice.objects.all():
+
+        grand_total = 0
+        for inv in invoices:
             bal = inv.outstanding_balance()
             if bal <= 0:
                 continue
             age = (today - inv.due_date).days
+            inv.outstanding = bal
+            inv.age_days = age
+
             if age <= 30:
-                buckets["0-30"].append(inv)
+                buckets["current"]["invoices"].append(inv)
+                buckets["current"]["total"] += bal
             elif age <= 60:
-                buckets["31-60"].append(inv)
+                buckets["31-60"]["invoices"].append(inv)
+                buckets["31-60"]["total"] += bal
             elif age <= 90:
-                buckets["61-90"].append(inv)
+                buckets["61-90"]["invoices"].append(inv)
+                buckets["61-90"]["total"] += bal
             else:
-                buckets["90+"].append(inv)
+                buckets["over_90"]["invoices"].append(inv)
+                buckets["over_90"]["total"] += bal
+            grand_total += bal
+
         ctx["buckets"] = buckets
+        ctx["grand_total"] = grand_total
+        ctx["clients"] = Client.objects.all().order_by("name")
+        ctx["client_filter"] = client_filter
         return ctx

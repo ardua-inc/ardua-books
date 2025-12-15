@@ -1,43 +1,376 @@
-i{% extends "base.html" %}
+{% extends "base.html" %}
 {% load formatting %}
+
+{% block container_class %}container-wide{% endblock %}
+
 {% block content %}
-<div class="container">
-
-  <h1>Income Statement</h1>
-
-  <table>
-    <thead>
-      <tr>
-        <th class="text-left account-col">Account</th>
-        <th class="text-right">Amount</th>
-      </tr>
-    </thead>
-
-    <tbody>
-    {% for acct in accounts %}
-      <tr>
-        <td class="text-left account-col">{{ acct.code }} - {{ acct.name }}</td>
-        <td class="text-right">{{ acct.balance|currency }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-
-    <tfoot>
-      <tr>
-        <th class="text-left">Total Revenue:</th>
-        <th class="text-right">{{ revenue_total|currency }}</th>
-      </tr>
-      <tr>
-        <th class="text-left">Total Expenses:</th>
-        <th class="text-right">{{ expense_total|currency }}</th>
-      </tr>
-      <tr>
-        <th class="text-left">Net Income:</th>
-        <th class="text-right">{{ net_income|currency }}</th>
-      </tr>
-    </tfoot>
-  </table>
-
+<div class="report-header">
+    <div class="report-title-section">
+        <h1>Income Statement</h1>
+        {% if from_date or to_date %}
+        <p class="report-date-range">
+            {% if from_date and to_date %}
+            {{ from_date|date:"M d, Y" }} - {{ to_date|date:"M d, Y" }}
+            {% elif from_date %}
+            From {{ from_date|date:"M d, Y" }}
+            {% elif to_date %}
+            Through {{ to_date|date:"M d, Y" }}
+            {% endif %}
+        </p>
+        {% else %}
+        <p class="report-date-range">All Time</p>
+        {% endif %}
+    </div>
+    <div class="report-actions">
+        <a href="{% url 'accounting:home' %}" class="btn btn-secondary btn-sm">Back to Reports</a>
+    </div>
 </div>
-{% endblock %}
 
+<form method="get" class="report-filters card" id="filterForm">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label for="date_preset">Date Range</label>
+            <select name="date_preset" id="date_preset" class="auto-submit">
+                <option value="" {% if not date_preset and not date_from %}selected{% endif %}>All time</option>
+                <option value="mtd" {% if date_preset == "mtd" %}selected{% endif %}>Month to date</option>
+                <option value="last_month" {% if date_preset == "last_month" %}selected{% endif %}>Last month</option>
+                <option value="ytd" {% if date_preset == "ytd" %}selected{% endif %}>Year to date</option>
+                <option value="last_year" {% if date_preset == "last_year" %}selected{% endif %}>Last year</option>
+                <option value="custom" {% if date_from or date_to %}selected{% endif %}>Custom range</option>
+            </select>
+        </div>
+
+        <div class="date-range-group date-range-fields" id="customDateGroup">
+            <div class="filter-group">
+                <label for="date_from">From</label>
+                <input type="date" name="date_from" id="date_from" value="{{ date_from }}">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">To</label>
+                <input type="date" name="date_to" id="date_to" value="{{ date_to }}">
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <a href="{% url 'accounting:income_statement' %}" class="btn btn-secondary btn-sm">Clear</a>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="income-statement-grid">
+    <div class="report-section card">
+        <div class="section-header revenue-header">
+            <h2>Revenue</h2>
+        </div>
+        <table class="report-table">
+            <tbody>
+            {% for acct in revenue_accounts %}
+                <tr>
+                    <td class="text-left">
+                        <span class="account-code">{{ acct.code }}</span>
+                        <span class="account-name">{{ acct.name }}</span>
+                    </td>
+                    <td class="text-right amount">{{ acct.balance|currency }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="2" class="text-center text-muted">No revenue accounts found.</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="subtotal-row">
+                    <th class="text-left">Total Revenue</th>
+                    <th class="text-right amount">{{ revenue_total|currency }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="report-section card">
+        <div class="section-header expense-header">
+            <h2>Expenses</h2>
+        </div>
+        <table class="report-table">
+            <tbody>
+            {% for acct in expense_accounts %}
+                <tr>
+                    <td class="text-left">
+                        <span class="account-code">{{ acct.code }}</span>
+                        <span class="account-name">{{ acct.name }}</span>
+                    </td>
+                    <td class="text-right amount">{{ acct.balance|currency }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="2" class="text-center text-muted">No expense accounts found.</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="subtotal-row">
+                    <th class="text-left">Total Expenses</th>
+                    <th class="text-right amount">{{ expense_total|currency }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="report-section card net-income-section">
+        <table class="report-table">
+            <tbody>
+                <tr class="net-income-row {% if net_income >= 0 %}positive{% else %}negative{% endif %}">
+                    <th class="text-left">Net Income</th>
+                    <th class="text-right amount">{{ net_income|currency }}</th>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.report-title-section h1 {
+    margin: 0 0 0.25rem 0;
+}
+
+.report-date-range {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.report-filters {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.date-range-group {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0;
+}
+
+.filter-group select,
+.filter-group input[type="date"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    width: 160px;
+    height: 34px;
+    box-sizing: border-box;
+}
+
+.filter-actions .btn {
+    height: 34px;
+}
+
+.date-range-fields {
+    display: none;
+}
+
+.date-range-fields.show {
+    display: flex;
+}
+
+.income-statement-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.report-section {
+    padding: 0;
+    overflow: hidden;
+}
+
+.section-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.revenue-header {
+    background: linear-gradient(to right, #dcfce7, #f0fdf4);
+}
+
+.revenue-header h2 {
+    color: #166534;
+}
+
+.expense-header {
+    background: linear-gradient(to right, #fee2e2, #fef2f2);
+}
+
+.expense-header h2 {
+    color: #991b1b;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.report-table th,
+.report-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.report-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.report-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.account-code {
+    font-family: monospace;
+    font-weight: 600;
+    color: #374151;
+    margin-right: 0.5rem;
+}
+
+.account-name {
+    color: #111827;
+}
+
+.amount {
+    font-family: monospace;
+    font-size: 0.95rem;
+}
+
+.subtotal-row {
+    background: #f9fafb;
+}
+
+.subtotal-row th {
+    padding: 0.875rem 1rem;
+    font-weight: 600;
+}
+
+.net-income-section {
+    background: #f3f4f6;
+}
+
+.net-income-row th {
+    padding: 1rem;
+    font-size: 1.1rem;
+}
+
+.net-income-row.positive th {
+    color: #166534;
+}
+
+.net-income-row.negative th {
+    color: #991b1b;
+}
+
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-muted { color: #6b7280; }
+
+@media (max-width: 768px) {
+    .report-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-group select,
+    .filter-group input[type="date"] {
+        width: 100%;
+    }
+
+    .date-range-group {
+        flex-wrap: wrap;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filterForm');
+    const presetSelect = document.getElementById('date_preset');
+    const dateRangeGroup = document.getElementById('customDateGroup');
+    const autoSubmitElements = document.querySelectorAll('.auto-submit');
+
+    function toggleCustomFields() {
+        const isCustom = presetSelect.value === 'custom' ||
+                         document.getElementById('date_from').value ||
+                         document.getElementById('date_to').value;
+        dateRangeGroup.classList.toggle('show', isCustom);
+    }
+
+    autoSubmitElements.forEach(function(el) {
+        el.addEventListener('change', function() {
+            if (presetSelect.value === 'custom') {
+                toggleCustomFields();
+            } else {
+                if (this.id === 'date_preset') {
+                    document.getElementById('date_from').value = '';
+                    document.getElementById('date_to').value = '';
+                }
+                form.submit();
+            }
+        });
+    });
+
+    presetSelect.addEventListener('change', function() {
+        if (this.value !== 'custom') {
+            document.getElementById('date_from').value = '';
+            document.getElementById('date_to').value = '';
+        }
+        toggleCustomFields();
+    });
+
+    toggleCustomFields();
+});
+</script>
+
+{% endblock %}

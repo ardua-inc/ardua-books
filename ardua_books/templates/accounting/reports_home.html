@@ -3,14 +3,130 @@
 <div class="container">
   <h1>Reports</h1>
 
-  <ul style="font-size:1.25rem; line-height:2rem;">
-    <li><a href="{% url 'accounting:trial_balance' %}">Trial Balance</a></li>
-    <li><a href="{% url 'accounting:income_statement' %}">Income Statement</a></li>
-    <li><a href="{% url 'accounting:journal_list' %}">Journal Entries</a></li>
-    <li><a href="{% url 'accounting:ar_aging' %}">AR Aging Report</a></li>
-    <li><a href="{% url 'accounting:client_balance_summary' %}">Client Balances</a></li>
+  <div class="reports-grid">
+    <div class="report-section">
+      <h2>Financial Reports</h2>
+      <div class="report-cards">
+        <a href="{% url 'accounting:trial_balance' %}" class="report-card">
+          <div class="report-card-icon">TB</div>
+          <div class="report-card-content">
+            <h3>Trial Balance</h3>
+            <p>View account balances with debit and credit totals</p>
+          </div>
+        </a>
+        <a href="{% url 'accounting:income_statement' %}" class="report-card">
+          <div class="report-card-icon">IS</div>
+          <div class="report-card-content">
+            <h3>Income Statement</h3>
+            <p>Revenue, expenses, and net income summary</p>
+          </div>
+        </a>
+        <a href="{% url 'accounting:journal_list' %}" class="report-card">
+          <div class="report-card-icon">JE</div>
+          <div class="report-card-content">
+            <h3>Journal Entries</h3>
+            <p>View and manage all journal entries</p>
+          </div>
+        </a>
+      </div>
+    </div>
 
-  </ul>
+    <div class="report-section">
+      <h2>Accounts Receivable</h2>
+      <div class="report-cards">
+        <a href="{% url 'accounting:ar_aging' %}" class="report-card">
+          <div class="report-card-icon">AR</div>
+          <div class="report-card-content">
+            <h3>AR Aging Report</h3>
+            <p>Outstanding invoices grouped by age</p>
+          </div>
+        </a>
+        <a href="{% url 'accounting:client_balance_summary' %}" class="report-card">
+          <div class="report-card-icon">CB</div>
+          <div class="report-card-content">
+            <h3>Client Balances</h3>
+            <p>Summary of client invoicing and payments</p>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
 </div>
+
+<style>
+.reports-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.report-section h2 {
+  font-size: 1.1rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.report-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.report-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.15s ease;
+}
+
+.report-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-2px);
+}
+
+.report-card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: #3b82f6;
+  font-weight: 700;
+  font-size: 1rem;
+  border-radius: 8px;
+}
+
+.report-card-content h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.report-card-content p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+@media (max-width: 640px) {
+  .report-cards {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 {% endblock %}
 

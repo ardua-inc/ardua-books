@@ -1,41 +1,341 @@
 {% extends "base.html" %}
 {% load formatting %}
+
+{% block container_class %}container-wide{% endblock %}
+
 {% block content %}
-<div class="container">
-  <h1>Journal Entries</h1>
-
-  <table>
-    <thead>
-      <tr>
-        <th class="text-left">ID</th>
-        <th class="text-left">Posted</th>
-        <th class="text-left">Description</th>
-        <th class="text-left">Source</th>
-        <th class="text-right">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for e in object_list %}
-      <tr>
-        <td>{{ e.id }}</td>
-        <td>{{ e.posted_at }}</td>
-        <td>{{ e.description }}</td>
-        <td>
-          {% if e.source_object %}
-            {{ e.source_object }}
-          {% else %}
-            &mdash;
-          {% endif %}
-        </td>
-        <td class="text-right">
-          <a href="{% url 'accounting:journal_detail' e.id %}">View</a>
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="5">No journal entries yet</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="report-header">
+    <div class="report-title-section">
+        <h1>Journal Entries</h1>
+    </div>
+    <div class="report-actions">
+        <a href="{% url 'accounting:home' %}" class="btn btn-secondary btn-sm">Back to Reports</a>
+    </div>
 </div>
-{% endblock %}
 
+<form method="get" class="list-filters card" id="filterForm">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label for="date_preset">Posted Date</label>
+            <select name="date_preset" id="date_preset" class="auto-submit">
+                <option value="" {% if not date_preset and not date_from %}selected{% endif %}>All time</option>
+                <option value="last30" {% if date_preset == "last30" %}selected{% endif %}>Last 30 days</option>
+                <option value="last90" {% if date_preset == "last90" %}selected{% endif %}>Last 90 days</option>
+                <option value="mtd" {% if date_preset == "mtd" %}selected{% endif %}>Month to date</option>
+                <option value="last_month" {% if date_preset == "last_month" %}selected{% endif %}>Last month</option>
+                <option value="ytd" {% if date_preset == "ytd" %}selected{% endif %}>Year to date</option>
+                <option value="last_year" {% if date_preset == "last_year" %}selected{% endif %}>Last year</option>
+                <option value="custom" {% if date_from or date_to %}selected{% endif %}>Custom range</option>
+            </select>
+        </div>
+
+        <div class="date-range-group date-range-fields" id="customDateGroup">
+            <div class="filter-group">
+                <label for="date_from">From</label>
+                <input type="date" name="date_from" id="date_from" value="{{ date_from }}">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">To</label>
+                <input type="date" name="date_to" id="date_to" value="{{ date_to }}">
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <a href="{% url 'accounting:journal_list' %}" class="btn btn-secondary btn-sm">Clear</a>
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <label for="per_page">Per page</label>
+            <select name="per_page" id="per_page" class="auto-submit">
+                {% for size in page_size_options %}
+                <option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</form>
+
+{% if entries %}
+<div class="report-content card">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th class="text-left">ID</th>
+                <th class="text-left">Posted</th>
+                <th class="text-left">Description</th>
+                <th class="text-left">Source</th>
+                <th class="text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for e in entries %}
+            <tr>
+                <td class="text-left">
+                    <a href="{% url 'accounting:journal_detail' e.id %}" class="entry-id">#{{ e.id }}</a>
+                </td>
+                <td class="text-left">{{ e.posted_at|date:"m/d/Y" }}</td>
+                <td class="text-left">{{ e.description|default:"—"|truncatewords:15 }}</td>
+                <td class="text-left">
+                    {% if e.source_object %}
+                    <span class="source-badge">{{ e.source_object }}</span>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td class="text-right">
+                    <a href="{% url 'accounting:journal_detail' e.id %}" class="btn btn-secondary btn-sm">View</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="pagination-nav">
+    <div class="pagination-info">
+        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries
+    </div>
+    <div class="pagination-controls">
+        {% if page_obj.has_previous %}
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" class="btn btn-sm btn-secondary">&laquo; First</a>
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-secondary">&lsaquo; Prev</a>
+        {% endif %}
+
+        <span class="pagination-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="btn btn-sm btn-secondary">Next &rsaquo;</a>
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}" class="btn btn-sm btn-secondary">Last &raquo;</a>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="card empty-state">
+    <p class="text-muted text-center">No journal entries match the selected filters.</p>
+</div>
+{% endif %}
+
+<style>
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.report-title-section h1 {
+    margin: 0;
+}
+
+.list-filters {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.date-range-group {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0;
+}
+
+.filter-group select,
+.filter-group input[type="date"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    width: 160px;
+    height: 34px;
+    box-sizing: border-box;
+}
+
+.filter-actions .btn {
+    height: 34px;
+}
+
+.date-range-fields {
+    display: none;
+}
+
+.date-range-fields.show {
+    display: flex;
+}
+
+.report-content {
+    padding: 0;
+    overflow: hidden;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.report-table th,
+.report-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.report-table thead th {
+    background: #f9fafb;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6b7280;
+}
+
+.report-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.entry-id {
+    font-family: monospace;
+    font-weight: 600;
+    color: #3b82f6;
+}
+
+.source-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    background: #f3f4f6;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #374151;
+}
+
+.empty-state {
+    padding: 3rem;
+}
+
+.pagination-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid #e5e7eb;
+}
+
+.pagination-info {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.pagination-current {
+    padding: 0 0.75rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-muted { color: #6b7280; }
+
+@media (max-width: 768px) {
+    .report-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-group select,
+    .filter-group input[type="date"] {
+        width: 100%;
+    }
+
+    .date-range-group {
+        flex-wrap: wrap;
+    }
+
+    .pagination-nav {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filterForm');
+    const presetSelect = document.getElementById('date_preset');
+    const dateRangeGroup = document.getElementById('customDateGroup');
+    const autoSubmitElements = document.querySelectorAll('.auto-submit');
+
+    function toggleCustomFields() {
+        const isCustom = presetSelect.value === 'custom' ||
+                         document.getElementById('date_from').value ||
+                         document.getElementById('date_to').value;
+        dateRangeGroup.classList.toggle('show', isCustom);
+    }
+
+    autoSubmitElements.forEach(function(el) {
+        el.addEventListener('change', function() {
+            if (presetSelect.value === 'custom') {
+                toggleCustomFields();
+            } else {
+                if (this.id === 'date_preset') {
+                    document.getElementById('date_from').value = '';
+                    document.getElementById('date_to').value = '';
+                }
+                form.submit();
+            }
+        });
+    });
+
+    presetSelect.addEventListener('change', function() {
+        if (this.value !== 'custom') {
+            document.getElementById('date_from').value = '';
+            document.getElementById('date_to').value = '';
+        }
+        toggleCustomFields();
+    });
+
+    toggleCustomFields();
+});
+</script>
+
+{% endblock %}
