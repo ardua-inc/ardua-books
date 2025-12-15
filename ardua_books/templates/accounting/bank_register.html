@@ -1,153 +1,412 @@
 {% extends "base.html" %}
+
+{% block container_class %}container-wide{% endblock %}
+
 {% block content %}
 
-<h2>Bank Register — {{ bank_account.institution }} ({{ bank_account.account_number_masked }})</h2>
+<h2>Bank Register</h2>
 
-<p>
-  <a href="{% url 'accounting:bankaccount_detail' bank_account.id %}" class="btn btn-secondary btn-sm">
-    Back to Account
-  </a>
-
-  <a href="{% url 'accounting:banktransaction_create' bank_account.id %}" class="btn btn-primary btn-sm">
-    New Transaction
-  </a>
-  <a href="{% url 'accounting:banktransaction_import' bank_account.id %}"
-   class="btn btn-warning btn-sm">
-   Import CSV
-</a>
-
-</p>
-
-<hr>
-
-<!-- Preset Filters -->
 <div class="mb-3">
-  <a href="?range=last30" class="btn btn-outline-primary btn-sm {% if range_code == 'last30' %}active{% endif %}">Last 30 Days</a>
-  <a href="?range=last90" class="btn btn-outline-primary btn-sm {% if range_code == 'last90' %}active{% endif %}">Last 90 Days</a>
-  <a href="?range=month" class="btn btn-outline-primary btn-sm {% if range_code == 'month' %}active{% endif %}">Month-to-Date</a>
-  <a href="?range=ytd" class="btn btn-outline-primary btn-sm {% if range_code == 'ytd' %}active{% endif %}">Year-to-Date</a>
-  <a href="?range=all" class="btn btn-outline-secondary btn-sm {% if range_code == 'all' %}active{% endif %}">All</a>
+    <a href="{% url 'accounting:banktransaction_create' bank_account.id %}" class="btn btn-primary btn-sm">New Transaction</a>
+    <a href="{% url 'accounting:banktransaction_import' bank_account.id %}" class="btn btn-warning btn-sm">Import CSV</a>
+    <a href="{% url 'accounting:bankaccount_list' %}" class="btn btn-secondary btn-sm">All Accounts</a>
 </div>
 
-<!-- Custom Date Range Filter -->
-<form method="get" class="row g-2 mb-4">
-  <div class="col-auto">
-    <label class="form-label">From:</label>
-    <input type="date" name="from" class="form-control" value="{{ from_date|date:'Y-m-d' }}">
-  </div>
+<form method="get" class="register-filters card" id="filterForm">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label for="account">Account</label>
+            <select name="account" id="account" class="account-select" onchange="switchAccount(this)">
+                {% for acct in all_accounts %}
+                <option value="{{ acct.pk }}" {% if acct.pk == bank_account.pk %}selected{% endif %}>
+                    {{ acct.institution }} ({{ acct.account_number_masked }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
 
-  <div class="col-auto">
-    <label class="form-label">To:</label>
-    <input type="date" name="to" class="form-control" value="{{ to_date|date:'Y-m-d' }}">
-  </div>
+        <div class="filter-group">
+            <label for="show">Show</label>
+            <select name="show" id="show" class="auto-submit">
+                <option value="all" {% if show_filter == "all" %}selected{% endif %}>All transactions</option>
+                <option value="unmatched" {% if show_filter == "unmatched" %}selected{% endif %}>Unmatched only</option>
+                <option value="matched" {% if show_filter == "matched" %}selected{% endif %}>Matched only</option>
+            </select>
+        </div>
 
-  <div class="col-auto align-self-end">
-    <button class="btn btn-primary btn-sm">Apply</button>
-  </div>
+        <div class="filter-group">
+            <label for="date_preset">Date Range</label>
+            <select name="date_preset" id="date_preset" class="auto-submit">
+                <option value="last30" {% if date_preset == "last30" %}selected{% endif %}>Last 30 days</option>
+                <option value="last90" {% if date_preset == "last90" %}selected{% endif %}>Last 90 days</option>
+                <option value="mtd" {% if date_preset == "mtd" %}selected{% endif %}>Month to date</option>
+                <option value="ytd" {% if date_preset == "ytd" %}selected{% endif %}>Year to date</option>
+                <option value="last_year" {% if date_preset == "last_year" %}selected{% endif %}>Last year</option>
+                <option value="all" {% if date_preset == "all" %}selected{% endif %}>All time</option>
+                <option value="custom" {% if date_from or date_to %}selected{% endif %}>Custom range</option>
+            </select>
+        </div>
+
+        <div class="date-range-group date-range-fields" id="customDateGroup">
+            <div class="filter-group">
+                <label for="date_from">From</label>
+                <input type="date" name="date_from" id="date_from" value="{{ date_from }}">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">To</label>
+                <input type="date" name="date_to" id="date_to" value="{{ date_to }}">
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <a href="{% url 'accounting:bankaccount_register' bank_account.pk %}" class="btn btn-secondary btn-sm">Clear</a>
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <label for="per_page">Per page</label>
+            <select name="per_page" id="per_page" class="auto-submit">
+                {% for size in page_size_options %}
+                <option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
 </form>
 
-<!-- Register Table -->
+<div class="account-summary card mb-3">
+    <div class="summary-row">
+        <div class="summary-item">
+            <span class="summary-label">Account</span>
+            <span class="summary-value">{{ bank_account.institution }} ({{ bank_account.account_number_masked }})</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">Type</span>
+            <span class="summary-value">{{ bank_account.get_type_display }}</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">Current Balance</span>
+            <span class="summary-value">${{ bank_account.balance|floatformat:2 }}</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">Balance Forward</span>
+            <span class="summary-value">${{ balance_forward|floatformat:2 }}</span>
+        </div>
+    </div>
+</div>
+
+{% if transactions %}
 <table class="table table-striped table-bordered">
-  <thead>
-    <tr>
-      <th>Date</th>
-      <th>Description</th>
-      <th class="text-end">Withdrawal</th>
-      <th class="text-end">Deposit</th>
-      <th class="text-end">Balance</th>
-      <th>Offset Account</th>
-      <th>JE</th>
-    </tr>
-  </thead>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th class="text-end">Withdrawal</th>
+            <th class="text-end">Deposit</th>
+            <th class="text-end">Balance</th>
+            <th>Offset Account</th>
+            <th>Match</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for txn in transactions %}
+        <tr>
+            <td>{{ txn.date }}</td>
+            <td>{{ txn.description }}</td>
 
-  <tbody>
-    <!-- Balance Forward Row -->
-    <tr>
-      <td>—</td>
-      <td><strong>Balance Forward</strong></td>
-      <td></td>
-      <td></td>
-      <td class="text-end"><strong>{{ balance_forward|floatformat:2|cut:"-" }}</strong></td>
-      <td></td>
-      <td></td>
-    </tr>
+            {% if txn.amount < 0 %}
+            <td class="text-end text-danger">{{ txn.amount|floatformat:2|cut:"-" }}</td>
+            <td></td>
+            {% else %}
+            <td></td>
+            <td class="text-end text-success">{{ txn.amount|floatformat:2 }}</td>
+            {% endif %}
 
-    {% for txn in transactions %}
-    <tr>
-        <td>{{ txn.date }}</td>
-        <td>{{ txn.description }}</td>
+            <td class="text-end">{{ txn.running_balance|floatformat:2 }}</td>
 
-        {% if txn.amount < 0 %}
-        <td class="text-end text-danger">{{ txn.amount|floatformat:2|cut:"-" }}</td>
-        <td></td>
-        {% else %}
-        <td></td>
-        <td class="text-end text-success">{{ txn.amount|floatformat:2 }}</td>
-        {% endif %}
-
-        <td class="text-end">
-        {{ txn.running_balance|floatformat:2 }}
-        </td>
-
-        <!-- OFFSET ACCOUNT -->
-        <td>
-        {% if txn.offset_account %}
-            {{ txn.offset_account.code }} — {{ txn.offset_account.name }}
-        {% else %}
-            —
-        {% endif %}
-        </td>
-
-        <!-- MATCH / PAYMENT LINKS -->
-        <td>
-        {% if txn.payment %}
-            <a href="{% url 'accounting:payment_detail' txn.payment.id %}">
-            Payment #{{ txn.payment.id }}
-            </a>
-        {% else %}
-            <div class="dropdown">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                    type="button"
-                    data-bs-toggle="dropdown">
-                Match
-            </button>
-            <ul class="dropdown-menu">
-                <li>
-                <a class="dropdown-item"
-                    href="{% url 'accounting:payment_create_from_transaction' txn.id %}">
-                    Create Payment…
-                </a>
-                </li>
-                <li>
-                <a class="dropdown-item"
-                    href="{% url 'accounting:banktransaction_link_payment' txn.id %}">
-                    Link Existing Payment…
-                </a>
-                </li>
-                {% if not txn.payment and not txn.expense %}
-                <li>
-                  <a class="dropdown-item"
-                    href="{% url 'accounting:banktransaction_link_expense' txn.id %}">
-                    Link Expense…
-                  </a>
-                </li>
+            <td>
+                {% if txn.offset_account %}
+                    {{ txn.offset_account.code }} — {{ txn.offset_account.name }}
+                {% else %}
+                    —
                 {% endif %}
+            </td>
 
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                <a class="dropdown-item text-warning"
-                    href="{% url 'accounting:banktransaction_mark_owner_equity' txn.id %}">
-                    Mark as Owner Equity
-                </a>
-                </li>
-            </ul>
-            </div>
-        {% endif %}
-        </td>
-    </tr>
-    {% endfor %}
-
-  </tbody>
+            <td>
+                {% if txn.payment %}
+                    <a href="{% url 'accounting:payment_detail' txn.payment.id %}">
+                        Payment #{{ txn.payment.id }}
+                    </a>
+                {% elif txn.expense %}
+                    <span class="text-muted">Expense</span>
+                {% else %}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                type="button"
+                                data-bs-toggle="dropdown">
+                            Match
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'accounting:payment_create_from_transaction' txn.id %}">
+                                    Create Payment…
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'accounting:banktransaction_link_payment' txn.id %}">
+                                    Link Existing Payment…
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'accounting:banktransaction_link_expense' txn.id %}">
+                                    Link Expense…
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-warning" href="{% url 'accounting:banktransaction_mark_owner_equity' txn.id %}">
+                                    Mark as Owner Equity
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="pagination-nav">
+    <div class="pagination-info">
+        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} transactions
+    </div>
+    <div class="pagination-controls">
+        {% if page_obj.has_previous %}
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" class="btn btn-sm btn-secondary">&laquo; First</a>
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-secondary">&lsaquo; Prev</a>
+        {% endif %}
+
+        <span class="pagination-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" class="btn btn-sm btn-secondary">Next &rsaquo;</a>
+        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}" class="btn btn-sm btn-secondary">Last &raquo;</a>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+
+{% else %}
+<p>No transactions match the selected filters.</p>
+{% endif %}
+
+<style>
+.register-filters {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.date-range-group {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0;
+}
+
+.filter-group select,
+.filter-group input[type="date"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    width: 160px;
+    height: 34px;
+    box-sizing: border-box;
+}
+
+.filter-group select.account-select {
+    width: 280px;
+}
+
+.filter-actions {
+    flex-direction: column;
+}
+
+.filter-actions .btn {
+    height: 34px;
+}
+
+.date-range-fields {
+    display: none;
+}
+
+.date-range-fields.show {
+    display: flex;
+}
+
+.account-summary {
+    padding: 1rem;
+}
+
+.summary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.summary-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.summary-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.text-end {
+    text-align: right;
+}
+
+.text-danger {
+    color: #dc2626;
+}
+
+.text-success {
+    color: #059669;
+}
+
+.pagination-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid #e5e7eb;
+}
+
+.pagination-info {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.pagination-current {
+    padding: 0 0.75rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+@media (max-width: 900px) {
+    .filter-row {
+        flex-wrap: wrap;
+    }
+
+    .filter-group select,
+    .filter-group input[type="date"] {
+        width: 100%;
+        min-width: 140px;
+    }
+
+    .filter-group select.account-select {
+        width: 100%;
+    }
+
+    .summary-row {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .pagination-nav {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+}
+</style>
+
+<script>
+function switchAccount(select) {
+    const accountId = select.value;
+    window.location.href = "{% url 'accounting:bankaccount_register' 0 %}".replace('0', accountId);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filterForm');
+    const presetSelect = document.getElementById('date_preset');
+    const dateRangeGroup = document.getElementById('customDateGroup');
+    const autoSubmitElements = document.querySelectorAll('.auto-submit');
+
+    function toggleCustomFields() {
+        const isCustom = presetSelect.value === 'custom' ||
+                         document.getElementById('date_from').value ||
+                         document.getElementById('date_to').value;
+        dateRangeGroup.classList.toggle('show', isCustom);
+    }
+
+    // Auto-submit on dropdown changes
+    autoSubmitElements.forEach(function(el) {
+        el.addEventListener('change', function() {
+            if (presetSelect.value === 'custom') {
+                toggleCustomFields();
+            } else {
+                if (this.id === 'date_preset') {
+                    document.getElementById('date_from').value = '';
+                    document.getElementById('date_to').value = '';
+                }
+                form.submit();
+            }
+        });
+    });
+
+    presetSelect.addEventListener('change', function() {
+        if (this.value !== 'custom') {
+            document.getElementById('date_from').value = '';
+            document.getElementById('date_to').value = '';
+        }
+        toggleCustomFields();
+    });
+
+    toggleCustomFields();
+});
+</script>
 
 {% endblock %}
