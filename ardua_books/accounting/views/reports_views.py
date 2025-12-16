@@ -46,9 +46,9 @@ class TrialBalanceView(TemplateView):
         # Build date filter for journal lines
         date_filter = Q()
         if from_date:
-            date_filter &= Q(journalline__journal_entry__entry_date__gte=from_date)
+            date_filter &= Q(journalline__entry__posted_at__date__gte=from_date)
         if to_date:
-            date_filter &= Q(journalline__journal_entry__entry_date__lte=to_date)
+            date_filter &= Q(journalline__entry__posted_at__date__lte=to_date)
 
         accounts = (
             ChartOfAccount.objects.all()
@@ -134,9 +134,9 @@ class IncomeStatementView(TemplateView):
         # Build date filter for journal lines
         date_filter = Q()
         if from_date:
-            date_filter &= Q(journalline__journal_entry__entry_date__gte=from_date)
+            date_filter &= Q(journalline__entry__posted_at__date__gte=from_date)
         if to_date:
-            date_filter &= Q(journalline__journal_entry__entry_date__lte=to_date)
+            date_filter &= Q(journalline__entry__posted_at__date__lte=to_date)
 
         accounts = (
             ChartOfAccount.objects.filter(
