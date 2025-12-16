@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Rule>
+    <ID>ExpireNoncurrentVersions</ID>
+    <Status>Enabled</Status>
+    <NoncurrentVersionExpiration>
+      <NoncurrentDays>90</NoncurrentDays>
+    </NoncurrentVersionExpiration>
+  </Rule>
+
+  <Rule>
+    <ID>RemoveDeleteMarkers</ID>
+    <Status>Enabled</Status>
+    <Expiration>
+      <ExpiredObjectDeleteMarker>true</ExpiredObjectDeleteMarker>
+    </Expiration>
+  </Rule>
+
+  <Rule>
+    <ID>AbortMultipartUploads</ID>
+    <Status>Enabled</Status>
+    <AbortIncompleteMultipartUpload>
+      <DaysAfterInitiation>7</DaysAfterInitiation>
+    </AbortIncompleteMultipartUpload>
+  </Rule>
+</LifecycleConfiguration>
+
