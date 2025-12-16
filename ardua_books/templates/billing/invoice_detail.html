@@ -47,14 +47,24 @@
 
   <h3>Payments Applied</h3>
     <table class="table">
-      <tr><th>Date</th><th>Amount</th></tr>
+      <tr><th>Date</th><th>Amount</th><th>Status</th><th></th></tr>
       {% for app in invoice.paymentapplication_set.all %}
       <tr>
         <td>{{ app.payment.date }}</td>
         <td>{{ app.amount }}</td>
+        <td>
+          {% if app.payment.bank_transactions.exists %}
+            <span class="badge bg-success">Matched</span>
+          {% else %}
+            <span class="badge bg-warning text-dark">Unmatched</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'accounting:payment_detail' app.payment.id %}" class="btn btn-sm btn-secondary">View Payment</a>
+        </td>
       </tr>
       {% empty %}
-      <tr><td colspan="2">No payments applied</td></tr>
+      <tr><td colspan="4">No payments applied</td></tr>
       {% endfor %}
     </table>
 

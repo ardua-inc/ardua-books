@@ -316,6 +316,9 @@ class BankTransactionService:
         Only allowed if:
           • txn.payment is None
           • payment.amount == txn.amount
+
+        Also updates the payment date to match the bank transaction date,
+        since the bank statement date is authoritative.
         """
         if txn.payment is not None:
             raise ValueError("Bank transaction is already linked to a payment.")
@@ -324,6 +327,11 @@ class BankTransactionService:
             raise ValueError(
                 f"Payment (${payment.amount}) and transaction (${txn.amount}) amounts do not match."
             )
+
+        # Update payment date to match bank transaction (authoritative source)
+        if payment.date != txn.date:
+            payment.date = txn.date
+            payment.save(update_fields=["date"])
 
         je = payment.post_to_accounting()
 

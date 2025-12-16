@@ -2,11 +2,37 @@
 {% block content %}
 <h1>Payment Detail</h1>
 
-<p><strong>Date:</strong> {{ payment.date }}</p>
-<p><strong>Client:</strong> {{ payment.client }}</p>
-<p><strong>Amount:</strong> {{ payment.amount }}</p>
-<p><strong>Method:</strong> {{ payment.get_method_display }}</p>
-<p><strong>Unapplied Amount:</strong> {{ payment.unapplied_amount }}</p>
+<div class="card mb-3">
+    <div class="card-body">
+        <p><strong>Date:</strong> {{ payment.date }}</p>
+        <p><strong>Client:</strong> {{ payment.client }}</p>
+        <p><strong>Amount:</strong> ${{ payment.amount|floatformat:2 }}</p>
+        <p><strong>Method:</strong> {{ payment.get_method_display }}</p>
+        <p><strong>Unapplied Amount:</strong> ${{ payment.unapplied_amount|floatformat:2 }}</p>
+
+        <h4 class="mt-3">Bank Match Status</h4>
+        {% with bank_txn=payment.bank_transactions.first %}
+        {% if bank_txn %}
+            <p>
+                <span class="badge bg-success">Matched</span>
+            </p>
+            <p><strong>Bank Account:</strong> {{ bank_txn.bank_account.institution }} ({{ bank_txn.bank_account.account_number_masked }})</p>
+            <p><strong>Transaction Date:</strong> {{ bank_txn.date }}</p>
+            <p><strong>Description:</strong> {{ bank_txn.description }}</p>
+            <p>
+                <a href="{% url 'accounting:bankaccount_register' bank_txn.bank_account.id %}" class="btn btn-sm btn-secondary">
+                    View Bank Register
+                </a>
+            </p>
+        {% else %}
+            <p>
+                <span class="badge bg-warning text-dark">Unmatched</span>
+                <span class="text-muted">— This payment has not been matched to a bank transaction.</span>
+            </p>
+        {% endif %}
+        {% endwith %}
+    </div>
+</div>
 
 <h2>Applications</h2>
 
