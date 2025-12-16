@@ -55,17 +55,6 @@ class BankAccountCreateView(FormView):
         return super().form_valid(form)
 
 
-class BankAccountDetailView(DetailView):
-    model = BankAccount
-    template_name = "accounting/bankaccount_detail.html"
-    context_object_name = "account"
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["recent_transactions"] = self.object.transactions.all()[:20]
-        return ctx
-
-
 class BankTransactionCreateView(FormView):
     template_name = "accounting/banktransaction_form.html"
     form_class = BankTransactionForm
@@ -99,7 +88,7 @@ class BankTransactionCreateView(FormView):
             offset_account=form.cleaned_data["offset_account"],
         )
         messages.success(self.request, "Transaction posted.")
-        return redirect("accounting:bankaccount_detail", pk=self.bank_account.pk)
+        return redirect("accounting:bankaccount_register", pk=self.bank_account.pk)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -341,7 +330,7 @@ class BankTransactionCSVImportView(View):
             profile = account.import_profile
         except BankImportProfile.DoesNotExist:
             messages.error(request, "No import profile defined for this account.")
-            return redirect("accounting:bankaccount_detail", pk=account.pk)
+            return redirect("accounting:bankaccount_register", pk=account.pk)
 
         decoded = csv_file.read().decode("utf-8").splitlines()
         reader = csv.reader(decoded)
@@ -378,7 +367,7 @@ class BankTransactionCSVImportView(View):
             count += 1
 
         messages.success(request, f"Imported {count} transactions.")
-        return redirect("accounting:bankaccount_detail", pk=account.pk)
+        return redirect("accounting:bankaccount_register", pk=account.pk)
 
 
 class BankTransactionLinkPaymentView(View):

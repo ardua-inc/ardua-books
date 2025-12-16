@@ -28,7 +28,6 @@ from accounting.views.payment_views import (
 from accounting.views.bank_views import (
     BankAccountListView,
     BankAccountCreateView,
-    BankAccountDetailView,
     BankTransactionCreateView,
     BankTransactionListView,
     BankTransactionListForAccountView,
@@ -55,7 +54,6 @@ __all__ = [
     # Bank views
     "BankAccountListView",
     "BankAccountCreateView",
-    "BankAccountDetailView",
     "BankTransactionCreateView",
     "BankTransactionListView",
     "BankTransactionListForAccountView",

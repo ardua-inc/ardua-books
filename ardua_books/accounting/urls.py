@@ -3,7 +3,6 @@ from django.urls import path
 from .views import (
     BankAccountListView,
     BankAccountCreateView,
-    BankAccountDetailView,
     BankRegisterView,
     BankTransactionListView,
     BankTransactionListForAccountView,
@@ -45,7 +44,6 @@ urlpatterns = [
     # BANK ACCOUNTS
     path("bank-accounts/", BankAccountListView.as_view(), name="bankaccount_list"),
     path("bank-accounts/new/", BankAccountCreateView.as_view(), name="bankaccount_create"),
-    path("bank-accounts/<int:pk>/", BankAccountDetailView.as_view(), name="bankaccount_detail"),
 
     # TRANSACTIONS
     path(
