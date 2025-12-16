@@ -1,0 +1,51 @@
+﻿"Ardua, Inc",,,,,,,,,,,,
+Sales by Customer Detail,,,,,,,,,,,,12/15/25
+"January 1 through December 3, 2025",,,,,,,,,,,,
+,,,Type,Date,Num,Name,Memo,Item,Qty,Sales Price,Amount,Balance
+,Blue Boutique,,,,,,,,,,,
+,,,Invoice,03/31/25,663,Blue Boutique,01/02/25 - Troubleshoot Downtown internet connection,JMR-FEES,1,100.00,100.00,100.00
+,,,Invoice,03/31/25,663,Blue Boutique,01/09/25 - Service call West Valley,JMR-FEES,1,100.00,100.00,200.00
+,,,Invoice,03/31/25,663,Blue Boutique,01/23/25 - Troubleshoot POS payment terminal issue,JMR-FEES,1,100.00,100.00,300.00
+,,,Invoice,03/31/25,663,Blue Boutique,01/31/25 - Configure VPN on MacBookAir for Wendy,JMR-FEES,2,100.00,200.00,500.00
+,,,Invoice,03/31/25,663,Blue Boutique,"02/05/25 - Meeting with Tony, Wendy, re: Wallet",JMR-FEES,1,100.00,100.00,600.00
+,,,Invoice,03/31/25,663,Blue Boutique,02/13/25 - Meeting with Novel (Wallet) about Erply integration,JMR-FEES,1,100.00,100.00,700.00
+,,,Invoice,03/31/25,663,Blue Boutique,02/18/25 - Follow-up meeting with Novel (Wallet) regarding Erply integration,JMR-FEES,1,100.00,100.00,800.00
+,,,Invoice,03/31/25,663,Blue Boutique,02/20/25 - Configure replacement camera for WV,JMR-FEES,1,100.00,100.00,900.00
+,,,Invoice,03/31/25,663,Blue Boutique,02/25/25 - Investigate and resolve Tony's Word issue,JMR-FEES,1,100.00,100.00,"1,000.00"
+,,,Invoice,03/31/25,663,Blue Boutique,02/25/25 - Meeting with Tony & Wendy to discuss Novel/Wallet integration,JMR-FEES,1,100.00,100.00,"1,100.00"
+,,,Invoice,03/31/25,663,Blue Boutique,03/25/25 - Investigate setting product-based age restrictions,JMR-FEES,1,100.00,100.00,"1,200.00"
+,,,Invoice,03/31/25,663,Blue Boutique,03/26/25 - Conference call with Novel re: Wallet,JMR-FEES,1,100.00,100.00,"1,300.00"
+,,,Invoice,03/31/25,663,Blue Boutique,02/18/25 - New Camera for West Valley,EXP,1,97.41,97.41,"1,397.41"
+,,,Invoice,05/30/25,664,Blue Boutique,04/03/25 - Research into changing to Erply Brazil POS,JMR-FEES,1,100.00,100.00,"1,497.41"
+,,,Invoice,05/30/25,664,Blue Boutique,04/18/25 - Meeting w/ Tony @ WV,JMR-FEES,1,100.00,100.00,"1,597.41"
+,,,Invoice,05/30/25,664,Blue Boutique,04/18/25 - Support call with Erply re: age verification,JMR-FEES,1,100.00,100.00,"1,697.41"
+,,,Invoice,05/30/25,664,Blue Boutique,05/06/25 - Configure WV register 1 for new POS version testing,JMR-FEES,1,100.00,100.00,"1,797.41"
+,,,Invoice,05/30/25,664,Blue Boutique,05/11/25 - Work on age verification; email updates; website maintenance,JMR-FEES,2,100.00,200.00,"1,997.41"
+,,,Invoice,05/30/25,664,Blue Boutique,05/21/25 - Set up Chelsea laptop,JMR-FEES,2,100.00,200.00,"2,197.41"
+,,,Invoice,05/30/25,664,Blue Boutique,"05/21/25 - Email updates, troubleshoot age verification",JMR-FEES,1,100.00,100.00,"2,297.41"
+,,,Invoice,05/30/25,664,Blue Boutique,"05/21/25 - Server maintenance, backups",JMR-FEES,3,100.00,300.00,"2,597.41"
+,,,Invoice,06/20/25,666,Blue Boutique,06/03/25 - Update & refresh three MacBookAirs,JMR-FEES,3,100.00,300.00,"2,897.41"
+,,,Invoice,06/20/25,666,Blue Boutique,06/04/25 - Set up laptop for new WV manager Taylor,JMR-FEES,1,100.00,100.00,"2,997.41"
+,,,Invoice,06/20/25,666,Blue Boutique,06/04/25 - Build extract for CityGro customer data to import into Shopify,JMR-FEES,4,100.00,400.00,"3,397.41"
+,,,Invoice,06/20/25,666,Blue Boutique,06/06/25 - Service call West Valley,JMR-FEES,2,100.00,200.00,"3,597.41"
+,,,Invoice,06/20/25,666,Blue Boutique,06/11/25 - Clean up and import CityGro contacts into Shopify,JMR-FEES,5,100.00,500.00,"4,097.41"
+,,,Invoice,06/20/25,666,Blue Boutique,06/11/25 - Service call WV,JMR-FEES,1,100.00,100.00,"4,197.41"
+,,,Invoice,06/20/25,666,Blue Boutique,06/13/25 - Updates to website,JMR-FEES,1,100.00,100.00,"4,297.41"
+,,,Invoice,06/20/25,666,Blue Boutique,"06/20/25 - Replace WV manager's computer, fix problems with receiving computer",JMR-FEES,2,100.00,200.00,"4,497.41"
+,,,Invoice,08/06/25,667,Blue Boutique,08/01/25 - Review email bounces and mark bounced as unsubscribed,JMR-FEES,1,100.00,100.00,"4,597.41"
+,,,Invoice,08/06/25,667,Blue Boutique,"08/06/25 - Filter emails through email verification service, update email status in Shopify, add newsletter signup to web page",JMR-FEES,4,100.00,400.00,"4,997.41"
+,,,Invoice,08/06/25,667,Blue Boutique,Fee for email verification service,EXP,1,260.28,260.28,"5,257.69"
+,,,Invoice,10/28/25,668,Blue Boutique,09/12/25 - Discussion on sales tax synchronization between Erply and Shopify,JMR-FEES,1,100.00,100.00,"5,357.69"
+,,,Invoice,10/28/25,668,Blue Boutique,10/08/25 - Troubleshoot ERPLY-Shopify Image Synchronization Issue,JMR-FEES,1,100.00,100.00,"5,457.69"
+,,,Invoice,10/28/25,668,Blue Boutique,10/11/25 - Service call WV,JMR-FEES,1,100.00,100.00,"5,557.69"
+,,,Invoice,10/28/25,668,Blue Boutique,10/10/25 - Refurbish and configure former Downtown register for Sugarhouse store,JMR-FEES,2,100.00,200.00,"5,757.69"
+,,,Invoice,10/28/25,668,Blue Boutique,10/11/25 - Register 51 fix,JMR-FEES,1,100.00,100.00,"5,857.69"
+,,,Invoice,10/28/25,668,Blue Boutique,10/11/25 - Replace register 3 at Sugarhouse,JMR-FEES,1,100.00,100.00,"5,957.69"
+,,,Invoice,10/28/25,668,Blue Boutique,"10/20/25 - Send Quickbooks files to new bookkeeper, redirect Sheri's email, change pw on LastPass",JMR-FEES,1,100.00,100.00,"6,057.69"
+,,,Invoice,10/28/25,668,Blue Boutique,10/25/25 - Service call West Valley,JMR-FEES,1,100.00,100.00,"6,157.69"
+,,,Invoice,10/28/25,668,Blue Boutique,10/26/25 - Reconfigure replacement register for WV,JMR-FEES,2,100.00,200.00,"6,357.69"
+,,,Invoice,10/28/25,668,Blue Boutique,10/28/25 - Replace West Valley Adult Computer,JMR-FEES,2,100.00,200.00,"6,557.69"
+,,,Invoice,10/28/25,668,Blue Boutique,"11/01/25 - Reinstall Windows on old WV register, prepare for installation at SH",JMR-FEES,2,100.00,200.00,"6,757.69"
+,,,Invoice,10/28/25,668,Blue Boutique,11/06/25 - Install refurbished register at SH,JMR-FEES,1,100.00,100.00,"6,857.69"
+,Total Blue Boutique,,,,,,,,,,"6,857.69","6,857.69"
+TOTAL,,,,,,,,,,,"6,857.69","6,857.69"
