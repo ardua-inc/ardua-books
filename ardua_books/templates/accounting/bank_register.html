@@ -104,8 +104,13 @@
         <tr>
             <th>Date</th>
             <th>Description</th>
-            <th class="text-end">Withdrawal</th>
+            {% if bank_account.type == "CREDIT_CARD" %}
+            <th class="text-end">Charge</th>
+            <th class="text-end">Payment</th>
+            {% else %}
+            <th class="text-end">Debit</th>
             <th class="text-end">Deposit</th>
+            {% endif %}
             <th class="text-end">Balance</th>
             <th>Offset Account</th>
             <th>Match</th>
