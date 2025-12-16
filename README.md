@@ -21,10 +21,16 @@ Ardua Books is a lightweight billing, invoicing, and accounting system designed 
 - **Bank Transaction Import** – CSV import with configurable column mapping and sign rules
 
 ### Reporting
-- **Trial Balance** – Aggregated debits/credits across all accounts
-- **Income Statement** – Revenue, expenses, and net income
-- **AR Aging** – Overdue invoice analysis by aging buckets
-- **Client Balance Summary** – Outstanding balances by client
+- **Trial Balance** – Aggregated debits/credits with date filtering
+- **Income Statement** – Revenue, expenses, and net income with date filtering
+- **AR Aging** – Overdue invoice analysis by aging buckets with client filtering
+- **Client Balance Summary** – Outstanding balances by client with sortable columns
+- **Journal Entries** – Searchable journal with date filtering and pagination
+
+All list views support:
+- Date range presets (MTD, YTD, Last 30 days, Last year, Custom)
+- Pagination with configurable page sizes
+- Auto-submit filters for quick navigation
 
 ### Mobile/PWA
 - **Mobile Entry Shell** – Quick time and expense entry at `/m/`
@@ -59,9 +65,10 @@ ardua_books/
 ├── billing/                  # Billing & invoicing module
 │   ├── models.py             # Client, Consultant, TimeEntry, Expense, Invoice
 │   ├── services.py           # Invoice generation, item attachment
-│   ├── views.py              # CRUD views + PDF generation
+│   ├── views/                # CRUD views + PDF generation
 │   ├── forms.py
 │   ├── urls.py
+│   ├── management/commands/  # Import and utility commands
 │   └── templates/billing/
 │
 ├── accounting/               # GL & reporting module
@@ -71,9 +78,7 @@ ardua_books/
 │   │   ├── banking.py        # Bank transaction logic
 │   │   ├── importing.py      # CSV import utilities
 │   │   └── payment_allocation.py
-│   ├── views.py              # Payment, bank account, transaction views
-│   ├── views_reports.py      # Trial balance, income statement, AR aging
-│   ├── views_dashboard.py    # Reports home
+│   ├── views/                # Payment, bank account, transaction views
 │   └── templates/accounting/
 │
 ├── templates/
@@ -101,8 +106,8 @@ ardua_books/
 ### 1. Create virtual environment
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 ```
 
 ### 2. Install dependencies
@@ -130,6 +135,107 @@ python manage.py runserver 8000
 - Main app: http://localhost:8000/
 - Admin: http://localhost:8000/admin/
 - Mobile: http://localhost:8000/m/
+
+---
+
+## Management Commands
+
+Ardua Books includes several management commands for data import and maintenance.
+
+### Running Commands
+
+**Development (local):**
+```bash
+cd ardua_books
+source ../venv/bin/activate
+python manage.py <command> [options]
+```
+
+**Production (Docker):**
+```bash
+docker compose exec web python manage.py <command> [options]
+```
+
+### Available Commands
+
+#### Import QuickBooks Invoices
+
+Import historical invoices from a QuickBooks "Sales by Customer Detail" CSV export.
+
+```bash
+python manage.py import_qb_invoices path/to/file.csv \
+    --income-account 4000 \
+    --consultant 1 \
+    --expense-category "Equipment" \
+    --dry-run
+```
+
+**Options:**
+| Option | Required | Description |
+|--------|----------|-------------|
+| `csv_file` | Yes | Path to QuickBooks CSV export |
+| `--income-account` | Yes | GL account code for revenue (e.g., 4000) |
+| `--consultant` | Yes | Consultant ID for time entries |
+| `--expense-category` | No | Expense category name (default: "Equipment") |
+| `--dry-run` | No | Preview without making changes |
+
+**What it creates:**
+- TimeEntry records (for JMR-* line items)
+- Expense records (for EXP line items)
+- Invoice with InvoiceLine records linked to time/expenses
+- Payment and PaymentApplication (marks invoice as paid)
+- Journal entries for both invoice and payment
+
+**Notes:**
+- Run one client at a time to specify different income accounts per client
+- Work dates are extracted from the memo field (format: "mm/dd/yy - description")
+- Duplicate invoice numbers are skipped automatically
+
+#### Clear Transactional Data
+
+Reset the database to a clean state while preserving configuration.
+
+```bash
+python manage.py clear_transactions
+python manage.py clear_transactions --yes  # Skip confirmation
+```
+
+**Preserves:**
+- Bank accounts & import profiles
+- Chart of accounts (GL accounts)
+- Users & groups
+- Consultants
+- Expense categories
+- Clients
+
+**Deletes:**
+- Journal entries & lines
+- Time entries
+- Expenses
+- Invoices & invoice lines
+- Payments & payment applications
+- Bank transactions
+
+#### Standard Django Commands
+
+```bash
+# Create a superuser
+python manage.py createsuperuser
+
+# Apply database migrations
+python manage.py migrate
+
+# Collect static files (production)
+python manage.py collectstatic
+
+# Create migrations after model changes
+python manage.py makemigrations
+
+# Run tests
+python manage.py test
+# or with pytest
+pytest
+```
 
 ---
 
@@ -173,7 +279,31 @@ POSTGRES_PORT=5432
 ### Deploy with Docker
 
 ```bash
+# Initial deployment
 docker compose up -d --build
+
+# Run migrations
+docker compose exec web python manage.py migrate
+
+# Create superuser
+docker compose exec web python manage.py createsuperuser
+
+# Collect static files
+docker compose exec web python manage.py collectstatic --noinput
+```
+
+### Running Management Commands in Production
+
+```bash
+# Import QuickBooks data
+docker compose exec web python manage.py import_qb_invoices /path/to/file.csv \
+    --income-account 4000 --consultant 1
+
+# Clear transactional data
+docker compose exec web python manage.py clear_transactions --yes
+
+# Database backup (PostgreSQL)
+docker compose exec db pg_dump -U ardua ardua_books > backup.sql
 ```
 
 ### NGINX
@@ -182,6 +312,25 @@ The `deploy/nginx.conf` provides a reverse proxy configuration. For production:
 - Configure TLS with Let's Encrypt/Certbot
 - Serve static files from the Docker volume
 - Proxy application traffic to Gunicorn
+
+---
+
+## Testing
+
+```bash
+# Run all tests with pytest
+cd ardua_books
+pytest
+
+# Run with coverage
+pytest --cov=billing --cov=accounting
+
+# Run specific test file
+pytest billing/tests/test_models.py
+
+# Run Django's test runner
+python manage.py test
+```
 
 ---
 
