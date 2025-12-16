@@ -1,0 +1,225 @@
+"""
+Data migration command for moving data between SQLite (dev) and PostgreSQL (prod).
+
+Usage:
+    # Export metadata only
+    python manage.py migrate_data export --metadata-only --output /path/to/export
+
+    # Export everything
+    python manage.py migrate_data export --output /path/to/export
+
+    # Import metadata only
+    python manage.py migrate_data import --metadata-only --input /path/to/export
+
+    # Import everything
+    python manage.py migrate_data import --input /path/to/export
+"""
+import json
+import os
+from django.core.management.base import BaseCommand, CommandError
+from django.core import serializers
+from django.contrib.contenttypes.models import ContentType
+
+
+# Models grouped by dependency order
+METADATA_MODELS = [
+    # Django auth (no dependencies)
+    'auth.Group',
+    'auth.User',
+    # Billing metadata
+    'billing.Client',
+    'billing.Consultant',
+    'billing.ExpenseCategory',
+    # Accounting metadata
+    'accounting.ChartOfAccount',
+    'accounting.BankAccount',
+    'accounting.BankImportProfile',
+]
+
+TRANSACTIONAL_MODELS = [
+    # Time and expenses (depend on clients, consultants, categories)
+    'billing.TimeEntry',
+    'billing.Expense',
+    # Invoices
+    'billing.Invoice',
+    'billing.InvoiceLine',
+    # Journal entries (may be referenced by other records)
+    'accounting.JournalEntry',
+    'accounting.JournalLine',
+    # Payments
+    'accounting.Payment',
+    'accounting.PaymentApplication',
+    # Bank transactions (depend on payments, expenses, JEs)
+    'accounting.BankTransaction',
+]
+
+
+class Command(BaseCommand):
+    help = "Export or import data for migration between databases"
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            'action',
+            choices=['export', 'import'],
+            help='Action to perform: export or import',
+        )
+        parser.add_argument(
+            '--metadata-only',
+            action='store_true',
+            help='Only migrate metadata (clients, accounts, categories, etc.)',
+        )
+        parser.add_argument(
+            '--output',
+            '-o',
+            help='Output directory for export',
+        )
+        parser.add_argument(
+            '--input',
+            '-i',
+            help='Input directory for import',
+        )
+
+    def handle(self, *args, **options):
+        action = options['action']
+        metadata_only = options['metadata_only']
+
+        if action == 'export':
+            output_dir = options.get('output')
+            if not output_dir:
+                raise CommandError("--output directory is required for export")
+            self.export_data(output_dir, metadata_only)
+
+        elif action == 'import':
+            input_dir = options.get('input')
+            if not input_dir:
+                raise CommandError("--input directory is required for import")
+            self.import_data(input_dir, metadata_only)
+
+    def export_data(self, output_dir, metadata_only):
+        """Export data to JSON files."""
+        from django.apps import apps
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        models_to_export = METADATA_MODELS.copy()
+        if not metadata_only:
+            models_to_export.extend(TRANSACTIONAL_MODELS)
+
+        self.stdout.write(self.style.SUCCESS(f"\nExporting to: {output_dir}"))
+        self.stdout.write("-" * 50)
+
+        # First, export ContentTypes (needed for GenericForeignKey references)
+        self.stdout.write("Exporting contenttypes...")
+        cts = ContentType.objects.all()
+        ct_data = serializers.serialize('json', cts, indent=2)
+        with open(os.path.join(output_dir, '00_contenttypes.json'), 'w') as f:
+            f.write(ct_data)
+        self.stdout.write(f"  Exported {len(cts)} content types")
+
+        for idx, model_label in enumerate(models_to_export, start=1):
+            app_label, model_name = model_label.split('.')
+            try:
+                model = apps.get_model(app_label, model_name)
+            except LookupError:
+                self.stdout.write(
+                    self.style.WARNING(f"  Model {model_label} not found, skipping")
+                )
+                continue
+
+            queryset = model.objects.all()
+            count = queryset.count()
+
+            if count == 0:
+                self.stdout.write(f"  {model_label}: 0 records (skipping)")
+                continue
+
+            # Serialize to JSON
+            data = serializers.serialize('json', queryset, indent=2)
+            filename = f"{idx:02d}_{app_label}_{model_name}.json"
+            filepath = os.path.join(output_dir, filename)
+
+            with open(filepath, 'w') as f:
+                f.write(data)
+
+            self.stdout.write(f"  {model_label}: {count} records -> {filename}")
+
+        self.stdout.write("-" * 50)
+        self.stdout.write(self.style.SUCCESS("Export complete!"))
+
+        # Write manifest
+        manifest = {
+            'metadata_only': metadata_only,
+            'models': models_to_export,
+        }
+        with open(os.path.join(output_dir, 'manifest.json'), 'w') as f:
+            json.dump(manifest, f, indent=2)
+
+    def import_data(self, input_dir, metadata_only):
+        """Import data from JSON files."""
+        from django.apps import apps
+        from django.db import transaction
+
+        if not os.path.exists(input_dir):
+            raise CommandError(f"Input directory does not exist: {input_dir}")
+
+        # Read manifest
+        manifest_path = os.path.join(input_dir, 'manifest.json')
+        if os.path.exists(manifest_path):
+            with open(manifest_path, 'r') as f:
+                manifest = json.load(f)
+            self.stdout.write(f"Found manifest: metadata_only={manifest.get('metadata_only')}")
+        else:
+            self.stdout.write(self.style.WARNING("No manifest found, proceeding anyway"))
+
+        self.stdout.write(self.style.SUCCESS(f"\nImporting from: {input_dir}"))
+        self.stdout.write("-" * 50)
+
+        # Get all JSON files, sorted by name (which preserves dependency order)
+        json_files = sorted([
+            f for f in os.listdir(input_dir)
+            if f.endswith('.json') and f != 'manifest.json'
+        ])
+
+        if metadata_only:
+            # Filter to only metadata files
+            metadata_prefixes = set()
+            for idx, model_label in enumerate(METADATA_MODELS, start=1):
+                app_label, model_name = model_label.split('.')
+                metadata_prefixes.add(f"{idx:02d}_{app_label}_{model_name}")
+            # Also include contenttypes
+            metadata_prefixes.add("00_contenttypes")
+
+            json_files = [
+                f for f in json_files
+                if any(f.startswith(p) for p in metadata_prefixes) or f.startswith("00_")
+            ]
+
+        total_imported = 0
+
+        with transaction.atomic():
+            for filename in json_files:
+                filepath = os.path.join(input_dir, filename)
+
+                with open(filepath, 'r') as f:
+                    data = f.read()
+
+                try:
+                    # Deserialize and save
+                    objects = list(serializers.deserialize('json', data))
+                    count = 0
+                    for obj in objects:
+                        # Use save with force_insert=False to handle both new and existing
+                        obj.save()
+                        count += 1
+
+                    self.stdout.write(f"  {filename}: {count} records imported")
+                    total_imported += count
+
+                except Exception as e:
+                    self.stdout.write(
+                        self.style.ERROR(f"  {filename}: ERROR - {e}")
+                    )
+                    raise
+
+        self.stdout.write("-" * 50)
+        self.stdout.write(self.style.SUCCESS(f"Import complete! {total_imported} total records"))
