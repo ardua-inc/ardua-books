@@ -442,18 +442,20 @@ def banktransaction_link_expense(request, pk):
         if form.is_valid():
             expense = form.cleaned_data["expense"]
 
-            # Defensive double-check
-            if expense.payment_account != txn.bank_account:
-                raise ValidationError("Expense account mismatch.")
+            try:
+                BankTransactionService.link_expense(txn=txn, expense=expense)
+                messages.success(
+                    request,
+                    f'Transaction linked to expense "{expense.description}" and posted to GL.'
+                )
+            except ValueError as e:
+                messages.error(request, str(e))
+                return render(
+                    request,
+                    "accounting/banktxn_link_expense.html",
+                    {"txn": txn, "form": form},
+                )
 
-            txn.expense = expense
-            txn.offset_account = expense.category.account
-            txn.save()
-
-            messages.success(
-                request,
-                f"Transaction linked to expense “{expense.description}”."
-            )
             return redirect(
                 "accounting:bankaccount_register",
                 txn.bank_account.id,

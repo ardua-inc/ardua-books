@@ -223,15 +223,16 @@ class BankTransactionLinkExpenseForm(forms.Form):
         super().__init__(*args, **kwargs)
 
         # Candidate expenses:
-        # - Charged to this account
-        # - Not already matched to a bank transaction
+        # - Not already linked to a bank transaction
+        # - payment_account not set yet (unlinked) or null
         # - Amount matches (abs)
         self.fields["expense"].queryset = (
             Expense.objects
-            .filter(payment_account=txn.bank_account)
-            .exclude(bank_transactions__isnull=False)
+            .filter(payment_account__isnull=True)  # Not yet linked to any bank account
+            .filter(bank_transactions__isnull=True)  # Not already matched to a bank txn
             .filter(amount=abs(txn.amount))
-            .order_by("-date")
+            .select_related("category")
+            .order_by("-expense_date")
         )
 
 class CSVImportForm(forms.Form):

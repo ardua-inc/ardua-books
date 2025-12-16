@@ -162,8 +162,14 @@ class IncomeStatementView(TemplateView):
         )
 
         # compute balances
+        # Revenue accounts have credit balances (credits > debits), so we negate to show positive
+        # Expense accounts have debit balances (debits > credits), shown as positive
         for a in accounts:
-            a.balance = (a.debit_sum or 0) - (a.credit_sum or 0)
+            raw_balance = (a.debit_sum or 0) - (a.credit_sum or 0)
+            if a.type == AccountType.INCOME:
+                a.balance = -raw_balance  # Flip sign for revenue (credit balances)
+            else:
+                a.balance = raw_balance   # Expenses already positive (debit balances)
 
         # Separate revenue and expense accounts
         revenue_accounts = [a for a in accounts if a.type == AccountType.INCOME]

@@ -374,3 +374,70 @@ class BankTransactionService:
         txn.save(update_fields=["offset_account"])
 
         return txn
+
+    # ----------------------------------------------------------------------
+    # 6. LINK BANK TRANSACTION TO EXPENSE
+    # ----------------------------------------------------------------------
+    @staticmethod
+    @transaction.atomic
+    def link_expense(txn, expense):
+        """
+        Links a bank transaction to an expense and posts to GL.
+
+        Creates a journal entry:
+            DR Expense Account (from expense.category.account)
+            CR Bank Account (from txn.bank_account.account)
+
+        Also updates expense.payment_account to the bank account.
+        """
+        from billing.models import Expense
+
+        if txn.expense is not None:
+            raise ValueError("Bank transaction is already linked to an expense.")
+
+        if txn.payment is not None:
+            raise ValueError("Bank transaction is already linked to a payment.")
+
+        expense_account = expense.category.account
+        if not expense_account:
+            raise ValueError(
+                f"Expense category '{expense.category.name}' has no GL account assigned. "
+                "Please assign a GL account to this category first."
+            )
+
+        # Update expense with payment account
+        expense.payment_account = txn.bank_account
+        expense.save(update_fields=["payment_account"])
+
+        # Create Journal Entry
+        amt = abs(txn.amount)
+        je = JournalEntry.objects.create(
+            posted_at=txn.date,
+            description=f"Expense: {expense.description or expense.category.name}",
+            source_content_type=ContentType.objects.get_for_model(Expense),
+            source_object_id=expense.id,
+        )
+
+        # DR Expense Account
+        JournalLine.objects.create(
+            entry=je,
+            account=expense_account,
+            debit=amt,
+            credit=Decimal("0"),
+        )
+
+        # CR Bank Account
+        JournalLine.objects.create(
+            entry=je,
+            account=txn.bank_account.account,
+            debit=Decimal("0"),
+            credit=amt,
+        )
+
+        # Link transaction to expense
+        txn.expense = expense
+        txn.offset_account = expense_account
+        txn.journal_entry = je
+        txn.save(update_fields=["expense", "offset_account", "journal_entry"])
+
+        return expense

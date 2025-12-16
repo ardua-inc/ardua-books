@@ -59,6 +59,13 @@ class ExpenseCategory(TimeStampedModel):
     """
     name = models.CharField(max_length=100, unique=True)
     billable_by_default = models.BooleanField(default=True)
+    account = models.ForeignKey(
+        "accounting.ChartOfAccount",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="GL expense account for this category",
+    )
 
     def __str__(self):
         return self.name
@@ -139,6 +146,14 @@ class Expense(TimeStampedModel):
         null=True,
         blank=True,
         related_name="expense",
+    )
+
+    payment_account = models.ForeignKey(
+        "accounting.BankAccount",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Bank account used to pay this expense",
     )
 
     class Meta:
