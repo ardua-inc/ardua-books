@@ -77,3 +77,8 @@ docker_deploy_script.sh
 docker_run_migrations.sh
 export.sh
 sample-dot-env.txt
+clear_transactions.sh
+import_invoices.sh
+
+# Test data (bank statements, QB exports, etc.)
+test-data/
