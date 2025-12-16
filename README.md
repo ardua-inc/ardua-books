@@ -306,6 +306,62 @@ docker compose exec web python manage.py clear_transactions --yes
 docker compose exec db pg_dump -U ardua ardua_books > backup.sql
 ```
 
+### Data Migration (SQLite → PostgreSQL)
+
+When moving from local development (SQLite) to production (PostgreSQL), use the migration scripts to transfer your data.
+
+#### Quick Migration
+
+```bash
+# Migrate metadata only (clients, accounts, categories, etc.)
+./scripts/migrate_to_production.sh --metadata-only
+
+# Migrate everything (metadata + all transactions)
+./scripts/migrate_to_production.sh
+```
+
+The script automatically:
+1. Exports data from local SQLite
+2. Copies export to the Docker container
+3. Imports into PostgreSQL
+4. Cleans up temporary files
+
+#### Manual Migration
+
+If you need more control, use the management command directly:
+
+**Export from local:**
+```bash
+# Metadata only
+python manage.py migrate_data export --metadata-only --output ./data_export
+
+# Everything
+python manage.py migrate_data export --output ./data_export
+```
+
+**Import to production:**
+```bash
+# Copy export to container
+docker cp ./data_export <container>:/app/data_export
+
+# Run import
+docker compose exec web python manage.py migrate_data import --input /app/data_export
+```
+
+#### What Gets Migrated
+
+| Category | Models |
+|----------|--------|
+| **Metadata** | Users, Groups, Clients, Consultants, ExpenseCategories, ChartOfAccounts, BankAccounts, BankImportProfiles |
+| **Transactions** | TimeEntries, Expenses, Invoices, InvoiceLines, JournalEntries, JournalLines, Payments, PaymentApplications, BankTransactions |
+
+#### Migration Tips
+
+- **Migrate metadata first** with `--metadata-only`, verify it looks correct, then migrate transactions
+- **Create a backup** of your production database before importing
+- The import handles foreign key dependencies automatically by importing in the correct order
+- If you need to re-migrate, use `clear_transactions` in production first to avoid duplicates
+
 ### NGINX
 
 The `deploy/nginx.conf` provides a reverse proxy configuration. For production:
