@@ -1,14 +1,13 @@
 services:
   web:
-    build: .
+    image: ghcr.io/jimatardua/ardua-books:latest
     env_file:
       - .env
     depends_on:
       - db
     volumes:
-      - ./media_volume:/app/media
-    ports:
-      - "8000:8000"
+      - media_volume:/app/media
+    restart: unless-stopped
 
   db:
     image: postgres:15
@@ -16,8 +15,42 @@ services:
       - .env
     volumes:
       - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  db-backup:
+    image: prodrigestivill/postgres-backup-local
+    env_file:
+      - .env
+      - .env.backup
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 14
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 3
+      BACKUP_SUFFIX: .dump
+      S3_PREFIX: postgres
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  receipts-backup:
+    image: rclone/rclone:latest
+    volumes:
+      - media_volume:/data:ro
+      - ./rclone:/config/rclone
+    command: >
+      sh -c "
+      while true; do
+        rclone sync /data/receipts s3:ardua-books-backups/receipts
+          --config /config/rclone/rclone.conf
+          --checksum --verbose;
+        sleep 86400;
+      done
+      "
+    restart: unless-stopped
 
 volumes:
   db_data:
-  static_volume:
   media_volume:
