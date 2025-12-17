@@ -39,6 +39,7 @@ staticfiles/
 media/
 receipts/
 !media/.gitkeep
+data_export/
 
 # Environment variables
 .env

@@ -28,8 +28,8 @@ COPY . .
 RUN python manage.py collectstatic --no-input
 
 # Run Gunicorn
-#CMD ["gunicorn", "ardua_books.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "ardua_books.wsgi:application", "--bind", "0.0.0.0:8000"]
 
 # Runserver (temporary)
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+#CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
