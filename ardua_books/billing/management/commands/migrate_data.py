@@ -13,6 +13,10 @@ Usage:
 
     # Import everything
     python manage.py migrate_data import --input /path/to/export
+
+    # Import, skipping records that already exist (useful for production DBs
+    # that have pre-populated tables like contenttypes or chart of accounts)
+    python manage.py migrate_data import --skip-existing --input /path/to/export
 """
 import json
 import os
@@ -78,10 +82,16 @@ class Command(BaseCommand):
             '-i',
             help='Input directory for import',
         )
+        parser.add_argument(
+            '--skip-existing',
+            action='store_true',
+            help='Skip records that already exist (by primary key) instead of failing',
+        )
 
     def handle(self, *args, **options):
         action = options['action']
         metadata_only = options['metadata_only']
+        skip_existing = options['skip_existing']
 
         if action == 'export':
             output_dir = options.get('output')
@@ -93,7 +103,7 @@ class Command(BaseCommand):
             input_dir = options.get('input')
             if not input_dir:
                 raise CommandError("--input directory is required for import")
-            self.import_data(input_dir, metadata_only)
+            self.import_data(input_dir, metadata_only, skip_existing)
 
     def export_data(self, output_dir, metadata_only):
         """Export data to JSON files."""
@@ -154,7 +164,7 @@ class Command(BaseCommand):
         with open(os.path.join(output_dir, 'manifest.json'), 'w') as f:
             json.dump(manifest, f, indent=2)
 
-    def import_data(self, input_dir, metadata_only):
+    def import_data(self, input_dir, metadata_only, skip_existing=False):
         """Import data from JSON files."""
         from django.apps import apps
         from django.db import transaction
@@ -172,6 +182,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No manifest found, proceeding anyway"))
 
         self.stdout.write(self.style.SUCCESS(f"\nImporting from: {input_dir}"))
+        if skip_existing:
+            self.stdout.write(self.style.WARNING("Mode: Skip existing records"))
         self.stdout.write("-" * 50)
 
         # Get all JSON files, sorted by name (which preserves dependency order)
@@ -195,6 +207,7 @@ class Command(BaseCommand):
             ]
 
         total_imported = 0
+        total_skipped = 0
 
         with transaction.atomic():
             for filename in json_files:
@@ -207,13 +220,31 @@ class Command(BaseCommand):
                     # Deserialize and save
                     objects = list(serializers.deserialize('json', data))
                     count = 0
+                    skipped = 0
+
                     for obj in objects:
-                        # Use save with force_insert=False to handle both new and existing
+                        if skip_existing:
+                            # Check if this record already exists
+                            model_class = obj.object.__class__
+                            pk = obj.object.pk
+
+                            if pk is not None and model_class.objects.filter(pk=pk).exists():
+                                skipped += 1
+                                continue
+
                         obj.save()
                         count += 1
 
-                    self.stdout.write(f"  {filename}: {count} records imported")
+                    if skipped > 0:
+                        self.stdout.write(
+                            f"  {filename}: {count} imported, "
+                            f"{self.style.WARNING(f'{skipped} skipped (existing)')}"
+                        )
+                    else:
+                        self.stdout.write(f"  {filename}: {count} records imported")
+
                     total_imported += count
+                    total_skipped += skipped
 
                 except Exception as e:
                     self.stdout.write(
@@ -222,4 +253,7 @@ class Command(BaseCommand):
                     raise
 
         self.stdout.write("-" * 50)
-        self.stdout.write(self.style.SUCCESS(f"Import complete! {total_imported} total records"))
+        summary = f"Import complete! {total_imported} records imported"
+        if total_skipped > 0:
+            summary += f", {total_skipped} skipped"
+        self.stdout.write(self.style.SUCCESS(summary))
