@@ -30,14 +30,15 @@ METADATA_MODELS = [
     # Django auth (no dependencies)
     'auth.Group',
     'auth.User',
-    # Billing metadata
+    # Billing metadata (no FK dependencies)
     'billing.Client',
     'billing.Consultant',
-    'billing.ExpenseCategory',
-    # Accounting metadata
+    # Accounting metadata (ChartOfAccount must come before ExpenseCategory)
     'accounting.ChartOfAccount',
     'accounting.BankAccount',
     'accounting.BankImportProfile',
+    # ExpenseCategory has FK to ChartOfAccount
+    'billing.ExpenseCategory',
 ]
 
 TRANSACTIONAL_MODELS = [
