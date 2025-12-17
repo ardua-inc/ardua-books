@@ -27,6 +27,8 @@ COPY . .
 # Collect static files (STATIC_ROOT must be set in settings)
 RUN python manage.py collectstatic --no-input
 
+EXPOSE 8000
+
 # Run Gunicorn
 CMD ["gunicorn", "ardua_books.wsgi:application", "--bind", "0.0.0.0:8000"]
 
