@@ -42,19 +42,19 @@ METADATA_MODELS = [
 ]
 
 TRANSACTIONAL_MODELS = [
-    # Time and expenses (depend on clients, consultants, categories)
-    'billing.TimeEntry',
-    'billing.Expense',
-    # Invoices
+    # Invoices first (InvoiceLine is referenced by TimeEntry/Expense)
     'billing.Invoice',
     'billing.InvoiceLine',
-    # Journal entries (may be referenced by other records)
+    # Time and expenses (may have FK to InvoiceLine)
+    'billing.TimeEntry',
+    'billing.Expense',
+    # Journal entries (referenced by BankTransaction)
     'accounting.JournalEntry',
     'accounting.JournalLine',
-    # Payments
+    # Payments (referenced by BankTransaction)
     'accounting.Payment',
     'accounting.PaymentApplication',
-    # Bank transactions (depend on payments, expenses, JEs)
+    # Bank transactions (depend on JournalEntry, Expense, Payment)
     'accounting.BankTransaction',
 ]
 
