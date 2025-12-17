@@ -211,6 +211,10 @@ class Command(BaseCommand):
         total_imported = 0
         total_skipped = 0
 
+        # Track deferred self-referential FK updates
+        # Format: [(model_class, pk, field_name, fk_value), ...]
+        deferred_self_refs = []
+
         for filename in json_files:
             filepath = os.path.join(input_dir, filename)
 
@@ -232,6 +236,21 @@ class Command(BaseCommand):
                         if pk is not None and model_class.objects.filter(pk=pk).exists():
                             skipped += 1
                             continue
+
+                    # Handle self-referential FKs by deferring them
+                    # Check for FKs that reference the same model
+                    for field in model_class._meta.get_fields():
+                        if (hasattr(field, 'related_model') and
+                            field.related_model == model_class and
+                            hasattr(field, 'attname')):
+                            # This is a self-referential FK
+                            fk_value = getattr(obj.object, field.attname)
+                            if fk_value is not None:
+                                # Save for later and null it out for now
+                                deferred_self_refs.append(
+                                    (model_class, pk, field.attname, fk_value)
+                                )
+                                setattr(obj.object, field.attname, None)
 
                     # Try to save, handling unique constraint violations
                     try:
@@ -261,6 +280,12 @@ class Command(BaseCommand):
                     self.style.ERROR(f"  {filename}: ERROR - {e}")
                 )
                 raise
+
+        # Second pass: update deferred self-referential FKs
+        if deferred_self_refs:
+            self.stdout.write(f"  Updating {len(deferred_self_refs)} self-referential links...")
+            for model_class, pk, field_name, fk_value in deferred_self_refs:
+                model_class.objects.filter(pk=pk).update(**{field_name: fk_value})
 
         self.stdout.write("-" * 50)
         summary = f"Import complete! {total_imported} records imported"
