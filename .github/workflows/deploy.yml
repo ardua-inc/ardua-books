@@ -22,7 +22,8 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./ardua_books 
+          file: ./ardua_books/Dockerfile
           push: true
           tags: |
             ghcr.io/jimatardua/ardua-books:latest
