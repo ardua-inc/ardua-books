@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Match Transfer</h2>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <strong>Transaction:</strong><br>
+    {{ txn.date }} — {{ txn.bank_account.institution }} ({{ txn.bank_account.account_number_masked }})<br>
+    {{ txn.description }}<br>
+    <strong>Amount:</strong> ${{ txn.amount|floatformat:2|cut:"-" }}
+    {% if txn.amount < 0 %}
+      <span class="text-danger">(withdrawal)</span>
+    {% else %}
+      <span class="text-success">(deposit)</span>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+      {% for error in form.non_field_errors %}
+        {{ error }}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if has_matching_transactions %}
+    <div class="mb-3">
+      <label for="{{ form.target_transaction.id_for_label }}" class="form-label">
+        Select Matching Transaction
+      </label>
+      <select name="target_transaction" id="{{ form.target_transaction.id_for_label }}" class="form-select">
+        <option value="">---------</option>
+        {% for txn_option in form.target_transaction.field.queryset %}
+          <option value="{{ txn_option.pk }}"
+            {% if form.target_transaction.value == txn_option.pk|stringformat:"s" %}selected{% endif %}>
+            {{ txn_option.date }} | {{ txn_option.bank_account.institution }} | {{ txn_option.description|truncatechars:40 }} | ${{ txn_option.amount|floatformat:2 }}
+          </option>
+        {% endfor %}
+      </select>
+      {% if form.target_transaction.errors %}
+        <div class="text-danger">{{ form.target_transaction.errors }}</div>
+      {% endif %}
+      <div class="form-text">
+        Select the corresponding transaction from another account that represents the other side of this transfer.
+      </div>
+    </div>
+
+    <button class="btn btn-primary">Match Transfer</button>
+  {% else %}
+    <div class="alert alert-warning">
+      <strong>No matching transactions found.</strong><br>
+      To match a transfer, there must be a transaction in another bank account with the same amount that hasn't already been matched.
+      <br><br>
+      Try importing or creating the corresponding transaction in the other account first.
+    </div>
+  {% endif %}
+
+  <a href="{% url 'accounting:bankaccount_register' txn.bank_account.id %}"
+     class="btn btn-secondary">
+     Cancel
+  </a>
+</form>
+
+{% endblock %}

@@ -259,13 +259,14 @@ class BankTransaction(models.Model):
     # Negative = withdrawal / charge / payment
     amount = models.DecimalField(max_digits=12, decimal_places=2)
 
-    # The JE created for this transaction (via GFK on JournalEntry)
-    journal_entry = models.OneToOneField(
+    # The JE created for this transaction
+    # ForeignKey (not OneToOne) because transfers share a JE between two transactions
+    journal_entry = models.ForeignKey(
         "accounting.JournalEntry",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="bank_transaction",
+        related_name="bank_transactions",
     )
 
     offset_account = models.ForeignKey(
@@ -292,6 +293,15 @@ class BankTransaction(models.Model):
         help_text="If this bank transaction has been matched to a payment, it appears here.",
     )
 
+    # For inter-account transfers, links the two matching transactions
+    transfer_pair = models.OneToOneField(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="transfer_linked",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -300,6 +310,11 @@ class BankTransaction(models.Model):
     def __str__(self):
         amt = f"+{self.amount}" if self.amount > 0 else f"{self.amount}"
         return f"{self.date} {amt} — {self.description}"
+
+    @property
+    def is_matched(self):
+        """Returns True if this transaction is matched to a payment, expense, or transfer."""
+        return bool(self.payment_id or self.expense_id or self.transfer_pair_id)
 
     
 class BankImportProfile(models.Model):

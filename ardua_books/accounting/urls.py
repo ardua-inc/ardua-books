@@ -12,18 +12,19 @@ from .views import (
     BankTransactionMarkOwnerEquityView,
     BankTransactionCSVImportView,
     banktransaction_link_expense,
-    JournalEntryListView, 
+    banktransaction_match_transfer,
+    JournalEntryListView,
     JournalEntryDetailView,
-    PaymentCreateGeneralView, 
+    PaymentCreateGeneralView,
     PaymentCreateFromTransactionView,
-    PaymentDetailView, 
-    PaymentListView, 
+    PaymentDetailView,
+    PaymentListView,
     payment_invoice_fragment,
     OffsetAccountFilterView,
     ReportsHomeView,
-    TrialBalanceView, 
-    IncomeStatementView, 
-    ARAgingView, 
+    TrialBalanceView,
+    IncomeStatementView,
+    ARAgingView,
     ClientBalanceSummaryView,
 )
 
@@ -90,7 +91,14 @@ urlpatterns = [
         "bank-transaction/<int:pk>/link-expense/",
         banktransaction_link_expense,
         name="banktransaction_link_expense",
-   ),
+    ),
+
+    path(
+        "bank-transaction/<int:pk>/match-transfer/",
+        banktransaction_match_transfer,
+        name="banktransaction_match_transfer",
+    ),
+
     # CSV IMPORT SUPPORT
     path(
         "bank-accounts/<int:pk>/import/",

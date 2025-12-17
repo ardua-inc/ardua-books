@@ -13,7 +13,7 @@
       {% endif %}
       <br>
       <strong>Category:</strong> {{ expense.category.name }}<br>
-      <strong>Amount:</strong> {{ expense.amount }}<br>
+      <strong>Amount:</strong> ${{ expense.amount|floatformat:2 }}<br>
       <strong>Billable:</strong> {{ expense.billable|yesno:"Yes,No" }}<br>
       <strong>Status:</strong> {{ expense.get_status_display }}<br>
     </p>
@@ -32,6 +32,29 @@
       </p>
     {% else %}
       <p class="mt-2 text-muted">No receipt attached.</p>
+    {% endif %}
+
+    {% if expense.invoice_line %}
+      <div class="mt-3 p-3 bg-light rounded">
+        <strong>Invoice:</strong>
+        <a href="{% url 'billing:invoice_detail' expense.invoice_line.invoice.pk %}">
+          Invoice #{{ expense.invoice_line.invoice.invoice_number }}
+        </a>
+        ({{ expense.invoice_line.invoice.get_status_display }})
+      </div>
+    {% endif %}
+
+    {% if expense.payment_account %}
+      <div class="mt-3 p-3 bg-light rounded">
+        <strong>Paid from:</strong>
+        {{ expense.payment_account.institution }} ({{ expense.payment_account.account_number_masked }})
+        {% if expense.bank_transactions.exists %}
+          —
+          <a href="{% url 'accounting:bankaccount_register' expense.payment_account.pk %}">
+            View in Bank Register
+          </a>
+        {% endif %}
+      </div>
     {% endif %}
 
     <p class="mt-3">

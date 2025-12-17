@@ -3,14 +3,54 @@
 
 <h2>Link Expense</h2>
 
-<p>
-  <strong>Transaction:</strong><br>
-  {{ txn.date }} — {{ txn.description }} — Amount: {{ txn.amount }}
-</p>
+<div class="card mb-3">
+  <div class="card-body">
+    <strong>Transaction:</strong><br>
+    {{ txn.date }} — {{ txn.description }}<br>
+    <strong>Amount:</strong> ${{ txn.amount|floatformat:2|cut:"-" }}
+  </div>
+</div>
 
 <form method="post">
   {% csrf_token %}
-  {{ form.as_p }}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+      {% for error in form.non_field_errors %}
+        {{ error }}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if has_matching_expenses %}
+    <div class="mb-3" id="expense-select-group">
+      <label for="{{ form.expense.id_for_label }}" class="form-label">Select Existing Expense</label>
+      {{ form.expense }}
+      {% if form.expense.errors %}
+        <div class="text-danger">{{ form.expense.errors }}</div>
+      {% endif %}
+    </div>
+
+    <div class="mb-3 form-check">
+      {{ form.create_new }}
+      <label class="form-check-label" for="{{ form.create_new.id_for_label }}">
+        Or create and link a new expense
+      </label>
+    </div>
+  {% else %}
+    <div class="alert alert-info mb-3">
+      No matching expenses found for this amount. A new expense will be created.
+    </div>
+    <input type="hidden" name="create_new" value="on">
+  {% endif %}
+
+  <div class="mb-3" id="category-group" {% if has_matching_expenses %}style="display: none;"{% endif %}>
+    <label for="{{ form.category.id_for_label }}" class="form-label">Expense Category</label>
+    {{ form.category }}
+    {% if form.category.errors %}
+      <div class="text-danger">{{ form.category.errors }}</div>
+    {% endif %}
+  </div>
 
   <button class="btn btn-primary">Link Expense</button>
   <a href="{% url 'accounting:bankaccount_register' txn.bank_account.id %}"
@@ -18,5 +58,28 @@
      Cancel
   </a>
 </form>
+
+{% if has_matching_expenses %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const createNewCheckbox = document.getElementById('{{ form.create_new.id_for_label }}');
+    const categoryGroup = document.getElementById('category-group');
+    const expenseSelectGroup = document.getElementById('expense-select-group');
+
+    function toggleFields() {
+        if (createNewCheckbox.checked) {
+            categoryGroup.style.display = 'block';
+            expenseSelectGroup.style.display = 'none';
+        } else {
+            categoryGroup.style.display = 'none';
+            expenseSelectGroup.style.display = 'block';
+        }
+    }
+
+    createNewCheckbox.addEventListener('change', toggleFields);
+    toggleFields();
+});
+</script>
+{% endif %}
 
 {% endblock %}

@@ -441,3 +441,90 @@ class BankTransactionService:
         txn.save(update_fields=["expense", "offset_account", "journal_entry"])
 
         return expense
+
+    # ----------------------------------------------------------------------
+    # 7. MATCH INTER-ACCOUNT TRANSFER
+    # ----------------------------------------------------------------------
+    @staticmethod
+    @transaction.atomic
+    def match_transfer(txn_from, txn_to):
+        """
+        Matches two bank transactions as an inter-account transfer.
+
+        For example: paying a credit card from checking:
+        - txn_from: checking withdrawal (-$500)
+        - txn_to: credit card payment (+$500)
+
+        Creates a single journal entry:
+            DR destination account (liability/asset being paid)
+            CR source account (asset/liability paying)
+
+        Both transactions share the same JE and are linked via transfer_pair.
+        """
+        # Validation: neither should already be matched
+        if txn_from.is_matched:
+            raise ValueError("Source transaction is already matched to a payment, expense, or transfer.")
+        if txn_to.is_matched:
+            raise ValueError("Destination transaction is already matched to a payment, expense, or transfer.")
+
+        # Must be different accounts
+        if txn_from.bank_account_id == txn_to.bank_account_id:
+            raise ValueError("Cannot match a transfer between the same account.")
+
+        # Amounts should be opposite (or at least same absolute value)
+        if abs(txn_from.amount) != abs(txn_to.amount):
+            raise ValueError(
+                f"Transaction amounts don't match: ${abs(txn_from.amount)} vs ${abs(txn_to.amount)}"
+            )
+
+        # Determine which is the source (withdrawal) and destination (deposit)
+        # Source should be negative (money leaving), destination positive (money arriving)
+        # But for credit card payments, the CC side shows positive (reducing liability)
+        # Let's just use the accounts: the one with negative amount is the source
+        if txn_from.amount < 0:
+            source_txn = txn_from
+            dest_txn = txn_to
+        else:
+            source_txn = txn_to
+            dest_txn = txn_from
+
+        source_account = source_txn.bank_account.account
+        dest_account = dest_txn.bank_account.account
+        amt = abs(source_txn.amount)
+
+        # Create journal entry for the transfer
+        je = JournalEntry.objects.create(
+            posted_at=source_txn.date,
+            description=f"Transfer: {source_txn.bank_account.institution} → {dest_txn.bank_account.institution}",
+            source_content_type=ContentType.objects.get_for_model(BankTransaction),
+            source_object_id=source_txn.id,
+        )
+
+        # DR destination (receiving) account
+        JournalLine.objects.create(
+            entry=je,
+            account=dest_account,
+            debit=amt,
+            credit=Decimal("0"),
+        )
+
+        # CR source (paying) account
+        JournalLine.objects.create(
+            entry=je,
+            account=source_account,
+            debit=Decimal("0"),
+            credit=amt,
+        )
+
+        # Link both transactions to the JE and each other
+        txn_from.journal_entry = je
+        txn_from.transfer_pair = txn_to
+        txn_from.offset_account = txn_to.bank_account.account
+        txn_from.save(update_fields=["journal_entry", "transfer_pair", "offset_account"])
+
+        txn_to.journal_entry = je
+        txn_to.transfer_pair = txn_from
+        txn_to.offset_account = txn_from.bank_account.account
+        txn_to.save(update_fields=["journal_entry", "transfer_pair", "offset_account"])
+
+        return je

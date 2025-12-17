@@ -22,6 +22,7 @@ from accounting.forms import (
     CSVImportForm,
     LinkPaymentToTransactionForm,
     BankTransactionLinkExpenseForm,
+    BankTransactionMatchTransferForm,
 )
 from accounting.models import (
     ChartOfAccount,
@@ -218,7 +219,10 @@ class BankRegisterView(TemplateView):
             to_date = today
 
         # Query transactions
-        tx_qs = BankTransaction.objects.filter(bank_account=bank_account)
+        tx_qs = BankTransaction.objects.filter(bank_account=bank_account).select_related(
+            "payment", "expense", "expense__category", "offset_account",
+            "transfer_pair", "transfer_pair__bank_account"
+        )
 
         if from_date:
             tx_qs = tx_qs.filter(date__gte=from_date)
@@ -227,10 +231,10 @@ class BankRegisterView(TemplateView):
 
         # Filter by matched/unmatched
         if show_filter == "unmatched":
-            tx_qs = tx_qs.filter(payment__isnull=True, expense__isnull=True)
+            tx_qs = tx_qs.filter(payment__isnull=True, expense__isnull=True, transfer_pair__isnull=True)
         elif show_filter == "matched":
             from django.db.models import Q
-            tx_qs = tx_qs.filter(Q(payment__isnull=False) | Q(expense__isnull=False))
+            tx_qs = tx_qs.filter(Q(payment__isnull=False) | Q(expense__isnull=False) | Q(transfer_pair__isnull=False))
 
         tx_qs = tx_qs.order_by("date", "id")
 
@@ -423,6 +427,8 @@ class BankTransactionMarkOwnerEquityView(View):
 
 @login_required
 def banktransaction_link_expense(request, pk):
+    from billing.models import Expense
+
     txn = get_object_or_404(BankTransaction, pk=pk)
 
     # Hard guardrail
@@ -440,16 +446,39 @@ def banktransaction_link_expense(request, pk):
             transaction=txn,
         )
         if form.is_valid():
-            expense = form.cleaned_data["expense"]
+            create_new = form.cleaned_data.get("create_new")
+
+            if create_new:
+                # Create a new expense from the bank transaction
+                category = form.cleaned_data["category"]
+                expense = Expense.objects.create(
+                    client=None,  # Not client-specific
+                    category=category,
+                    expense_date=txn.date,
+                    amount=abs(txn.amount),
+                    description=txn.description,
+                    billable=False,  # Non-client expenses are not billable
+                )
+            else:
+                expense = form.cleaned_data["expense"]
 
             try:
                 BankTransactionService.link_expense(txn=txn, expense=expense)
-                messages.success(
-                    request,
-                    f'Transaction linked to expense "{expense.description}" and posted to GL.'
-                )
+                if create_new:
+                    messages.success(
+                        request,
+                        f'Created expense "{expense.description}" and posted to GL.'
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f'Transaction linked to expense "{expense.description}" and posted to GL.'
+                    )
             except ValueError as e:
                 messages.error(request, str(e))
+                # If we created a new expense but linking failed, delete it
+                if create_new:
+                    expense.delete()
                 return render(
                     request,
                     "accounting/banktxn_link_expense.html",
@@ -465,11 +494,65 @@ def banktransaction_link_expense(request, pk):
             transaction=txn,
         )
 
+    # Check if there are any matching expenses
+    has_matching_expenses = form.fields["expense"].queryset.exists()
+
     return render(
         request,
         "accounting/banktxn_link_expense.html",
         {
             "txn": txn,
             "form": form,
+            "has_matching_expenses": has_matching_expenses,
+        },
+    )
+
+
+@login_required
+def banktransaction_match_transfer(request, pk):
+    """Match a bank transaction to another transaction as an inter-account transfer."""
+    txn = get_object_or_404(BankTransaction, pk=pk)
+
+    # Check if already matched
+    if txn.is_matched:
+        messages.error(request, "This transaction is already matched.")
+        return redirect("accounting:bankaccount_register", txn.bank_account.id)
+
+    if request.method == "POST":
+        form = BankTransactionMatchTransferForm(
+            request.POST,
+            source_transaction=txn,
+        )
+        if form.is_valid():
+            target_txn = form.cleaned_data["target_transaction"]
+
+            try:
+                BankTransactionService.match_transfer(txn_from=txn, txn_to=target_txn)
+                messages.success(
+                    request,
+                    f"Matched transfer between {txn.bank_account.institution} and {target_txn.bank_account.institution}."
+                )
+            except ValueError as e:
+                messages.error(request, str(e))
+                return render(
+                    request,
+                    "accounting/banktxn_match_transfer.html",
+                    {"txn": txn, "form": form},
+                )
+
+            return redirect("accounting:bankaccount_register", txn.bank_account.id)
+    else:
+        form = BankTransactionMatchTransferForm(source_transaction=txn)
+
+    # Check if there are any matching transactions
+    has_matching_transactions = form.fields["target_transaction"].queryset.exists()
+
+    return render(
+        request,
+        "accounting/banktxn_match_transfer.html",
+        {
+            "txn": txn,
+            "form": form,
+            "has_matching_transactions": has_matching_transactions,
         },
     )

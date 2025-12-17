@@ -214,11 +214,24 @@ class BankTransactionForm(forms.Form):
 class BankTransactionLinkExpenseForm(forms.Form):
     expense = forms.ModelChoiceField(
         queryset=Expense.objects.none(),
-        required=True,
+        required=False,
         label="Expense",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    create_new = forms.BooleanField(
+        required=False,
+        label="Create and link new expense",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+    category = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        label="Expense Category",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     def __init__(self, *args, **kwargs):
+        from billing.models import ExpenseCategory
         txn = kwargs.pop("transaction")
         super().__init__(*args, **kwargs)
 
@@ -234,6 +247,63 @@ class BankTransactionLinkExpenseForm(forms.Form):
             .select_related("category")
             .order_by("-expense_date")
         )
+
+        # Category choices for creating new expense
+        self.fields["category"].queryset = (
+            ExpenseCategory.objects
+            .filter(account__isnull=False)  # Only categories with GL accounts
+            .order_by("name")
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        create_new = cleaned_data.get("create_new")
+        expense = cleaned_data.get("expense")
+        category = cleaned_data.get("category")
+
+        if create_new:
+            if not category:
+                raise forms.ValidationError("Please select an expense category.")
+        else:
+            if not expense:
+                raise forms.ValidationError("Please select an expense to link.")
+
+        return cleaned_data
+
+class BankTransactionMatchTransferForm(forms.Form):
+    """Form to select a matching transaction for inter-account transfer."""
+    target_transaction = forms.ModelChoiceField(
+        queryset=None,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        required=True,
+        label="Matching Transaction",
+    )
+
+    def __init__(self, *args, **kwargs):
+        from accounting.models import BankTransaction
+        source_txn = kwargs.pop("source_transaction")
+        super().__init__(*args, **kwargs)
+
+        # Find candidate transactions:
+        # - Different bank account
+        # - Same absolute amount
+        # - Not already matched (no payment, expense, or transfer_pair)
+        amt = abs(source_txn.amount)
+        self.fields["target_transaction"].queryset = (
+            BankTransaction.objects
+            .exclude(bank_account=source_txn.bank_account)
+            .filter(payment__isnull=True)
+            .filter(expense__isnull=True)
+            .filter(transfer_pair__isnull=True)
+            .filter(amount__in=[amt, -amt])
+            .select_related("bank_account")
+            .order_by("-date")
+        )
+
+    def label_from_instance(self, obj):
+        """Custom label for the transaction dropdown."""
+        return f"{obj.date} | {obj.bank_account.institution} | {obj.description} | ${abs(obj.amount)}"
+
 
 class CSVImportForm(forms.Form):
     file = forms.FileField()
