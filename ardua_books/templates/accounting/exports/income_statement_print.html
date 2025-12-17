@@ -1,0 +1,60 @@
+{% extends "accounting/report_print_base.html" %}
+{% load formatting %}
+
+{% block report_content %}
+<table>
+    <thead>
+        <tr>
+            <th class="text-left" colspan="2">Account</th>
+            <th class="text-right">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Revenue Section -->
+        <tr>
+            <td colspan="3" class="section-header revenue">REVENUE</td>
+        </tr>
+        {% for acct in revenue_accounts %}
+        <tr>
+            <td class="account-code">{{ acct.code }}</td>
+            <td>{{ acct.name }}</td>
+            <td class="text-right amount">{{ acct.balance|currency }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3" class="text-center">No revenue accounts found.</td>
+        </tr>
+        {% endfor %}
+        <tr class="summary-row">
+            <td colspan="2" class="text-right"><strong>Total Revenue</strong></td>
+            <td class="text-right amount"><strong>{{ revenue_total|currency }}</strong></td>
+        </tr>
+
+        <!-- Expenses Section -->
+        <tr>
+            <td colspan="3" class="section-header expense">EXPENSES</td>
+        </tr>
+        {% for acct in expense_accounts %}
+        <tr>
+            <td class="account-code">{{ acct.code }}</td>
+            <td>{{ acct.name }}</td>
+            <td class="text-right amount">{{ acct.balance|currency }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3" class="text-center">No expense accounts found.</td>
+        </tr>
+        {% endfor %}
+        <tr class="summary-row">
+            <td colspan="2" class="text-right"><strong>Total Expenses</strong></td>
+            <td class="text-right amount"><strong>{{ expense_total|currency }}</strong></td>
+        </tr>
+    </tbody>
+    <tfoot>
+        <tr class="net-income-row {% if net_income >= 0 %}positive{% else %}negative{% endif %}">
+            <td colspan="2" class="text-right"><strong>NET INCOME</strong></td>
+            <td class="text-right amount"><strong>{{ net_income|currency }}</strong></td>
+        </tr>
+    </tfoot>
+</table>
+{% endblock %}

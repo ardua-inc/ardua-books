@@ -9,6 +9,11 @@
         <p class="report-date-range">As of {{ "now"|date:"M d, Y" }}</p>
     </div>
     <div class="report-actions">
+        <div class="btn-group">
+            <a href="{% url 'accounting:client_balance_print' %}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Print Preview">Print</a>
+            <a href="{% url 'accounting:client_balance_pdf' %}" class="btn btn-outline-secondary btn-sm" title="Download PDF">PDF</a>
+            <a href="{% url 'accounting:client_balance_csv' %}" class="btn btn-outline-secondary btn-sm" title="Export to CSV">CSV</a>
+        </div>
         <a href="{% url 'accounting:home' %}" class="btn btn-secondary btn-sm">Back to Reports</a>
     </div>
 </div>

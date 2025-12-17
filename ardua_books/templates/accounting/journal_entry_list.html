@@ -9,6 +9,11 @@
         <h1>Journal Entries</h1>
     </div>
     <div class="report-actions">
+        <div class="btn-group">
+            <a href="{% url 'accounting:journal_entries_print' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Print Preview">Print</a>
+            <a href="{% url 'accounting:journal_entries_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" title="Download PDF">PDF</a>
+            <a href="{% url 'accounting:journal_entries_csv' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" title="Export to CSV">CSV</a>
+        </div>
         <a href="{% url 'accounting:home' %}" class="btn btn-secondary btn-sm">Back to Reports</a>
     </div>
 </div>

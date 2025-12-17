@@ -1,0 +1,51 @@
+{% extends "accounting/report_print_base.html" %}
+{% load formatting %}
+
+{% block report_content %}
+<table>
+    <thead>
+        <tr>
+            <th class="text-left">ID</th>
+            <th class="text-left">Date</th>
+            <th class="text-left">Description</th>
+            <th class="text-left">Account</th>
+            <th class="text-right">Debit</th>
+            <th class="text-right">Credit</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for entry in entries %}
+        {% for line in entry.lines.all %}
+        <tr {% if forloop.first %}class="entry-first-row"{% endif %}>
+            {% if forloop.first %}
+            <td rowspan="{{ entry.lines.count }}">#{{ entry.id }}</td>
+            <td rowspan="{{ entry.lines.count }}">{{ entry.posted_at|date:"m/d/Y" }}</td>
+            <td rowspan="{{ entry.lines.count }}">{{ entry.description|default:"—" }}</td>
+            {% endif %}
+            <td>
+                <span class="account-code">{{ line.account.code }}</span>
+                {{ line.account.name }}
+            </td>
+            <td class="text-right amount">{% if line.debit %}{{ line.debit|currency }}{% endif %}</td>
+            <td class="text-right amount">{% if line.credit %}{{ line.credit|currency }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+    {% empty %}
+        <tr>
+            <td colspan="6" class="text-center">No journal entries found for the selected period.</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<style>
+    /* Journal entries specific styles */
+    .entry-first-row td {
+        border-top: 2px solid #d1d5db;
+    }
+
+    tbody tr:first-child td {
+        border-top: none;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "accounting/report_print_base.html" %}
+{% load formatting %}
+
+{% block report_content %}
+<table>
+    <thead>
+        <tr>
+            <th class="text-left">Client</th>
+            <th class="text-right">Total Invoiced</th>
+            <th class="text-right">Applied</th>
+            <th class="text-right">Unapplied</th>
+            <th class="text-right">Outstanding</th>
+            <th class="text-right">Net AR</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in summary %}
+        <tr>
+            <td>{{ row.client.name }}</td>
+            <td class="text-right amount">{{ row.total_invoiced|currency }}</td>
+            <td class="text-right amount">{{ row.applied|currency }}</td>
+            <td class="text-right amount {% if row.unapplied > 0 %}negative{% endif %}">{{ row.unapplied|currency }}</td>
+            <td class="text-right amount">{{ row.outstanding|currency }}</td>
+            <td class="text-right amount {% if row.net_ar < 0 %}negative{% endif %}">{{ row.net_ar|currency }}</td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="6" class="text-center">No clients found.</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <th class="text-right">Totals:</th>
+            <th class="text-right amount">{% widthratio 1 1 1 as dummy %}{% with total_invoiced=0 %}{% for row in summary %}{% endfor %}{% endwith %}</th>
+            <th class="text-right amount"></th>
+            <th class="text-right amount"></th>
+            <th class="text-right amount"></th>
+            <th class="text-right amount"></th>
+        </tr>
+    </tfoot>
+</table>
+
+<style>
+    /* Additional styles for client balance */
+    .amount.negative {
+        color: #dc2626;
+    }
+</style>
+{% endblock %}

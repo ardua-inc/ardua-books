@@ -6,10 +6,25 @@ Re-exports all views for backward compatibility with existing imports.
 
 from accounting.views.reports_views import (
     ReportsHomeView,
-    TrialBalanceView, 
-    IncomeStatementView, 
-    ARAgingView, 
+    TrialBalanceView,
+    IncomeStatementView,
+    ARAgingView,
     ClientBalanceSummaryView,
+)
+
+from accounting.views.report_exports import (
+    trial_balance_print,
+    trial_balance_pdf,
+    trial_balance_csv,
+    income_statement_print,
+    income_statement_pdf,
+    income_statement_csv,
+    client_balance_print,
+    client_balance_pdf,
+    client_balance_csv,
+    journal_entries_print,
+    journal_entries_pdf,
+    journal_entries_csv,
 )
 from accounting.views.journal_views import (
     JournalEntryListView,
@@ -68,8 +83,21 @@ __all__ = [
     "banktransaction_match_transfer",
     # Report views
     "ReportsHomeView",
-    "TrialBalanceView", 
-    "IncomeStatementView", 
-    "ARAgingView", 
+    "TrialBalanceView",
+    "IncomeStatementView",
+    "ARAgingView",
     "ClientBalanceSummaryView",
+    # Report exports
+    "trial_balance_print",
+    "trial_balance_pdf",
+    "trial_balance_csv",
+    "income_statement_print",
+    "income_statement_pdf",
+    "income_statement_csv",
+    "client_balance_print",
+    "client_balance_pdf",
+    "client_balance_csv",
+    "journal_entries_print",
+    "journal_entries_pdf",
+    "journal_entries_csv",
 ]

@@ -1,0 +1,239 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ report_title }} - Ardua Books</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.75in;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #111827;
+            margin: 0;
+            padding: 0;
+        }
+
+        .report-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #111827;
+        }
+
+        .company-name {
+            font-size: 14pt;
+            font-weight: 700;
+            margin: 0 0 0.25rem 0;
+        }
+
+        .report-title {
+            font-size: 18pt;
+            font-weight: 700;
+            margin: 0 0 0.25rem 0;
+        }
+
+        .report-date-range {
+            font-size: 10pt;
+            color: #6b7280;
+            margin: 0;
+        }
+
+        .report-generated {
+            font-size: 8pt;
+            color: #9ca3af;
+            margin-top: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        th, td {
+            padding: 0.4rem 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+
+        thead th {
+            background: #f3f4f6;
+            font-weight: 600;
+            font-size: 9pt;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #374151;
+            border-bottom: 2px solid #d1d5db;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        tfoot th, tfoot td {
+            background: #f3f4f6;
+            font-weight: 600;
+            border-top: 2px solid #d1d5db;
+        }
+
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        .amount {
+            font-family: "SF Mono", Monaco, "Courier New", monospace;
+            font-size: 9pt;
+        }
+
+        .amount.negative {
+            color: #dc2626;
+        }
+
+        .account-code {
+            font-family: "SF Mono", Monaco, "Courier New", monospace;
+            font-weight: 600;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 8pt;
+            font-weight: 500;
+        }
+
+        .badge-asset { background: #dbeafe; color: #1e40af; }
+        .badge-liability { background: #fef3c7; color: #92400e; }
+        .badge-equity { background: #d1fae5; color: #065f46; }
+        .badge-income { background: #dcfce7; color: #166534; }
+        .badge-expense { background: #fee2e2; color: #991b1b; }
+
+        .badge-balanced { background: #d1fae5; color: #065f46; }
+        .badge-unbalanced { background: #fee2e2; color: #991b1b; }
+
+        .section-header {
+            background: #f3f4f6;
+            padding: 0.5rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            border-bottom: 1px solid #d1d5db;
+        }
+
+        .section-header.revenue {
+            background: linear-gradient(135deg, #dcfce7, #d1fae5);
+        }
+
+        .section-header.expense {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+        }
+
+        .summary-row {
+            font-weight: 600;
+            background: #f3f4f6;
+        }
+
+        .net-income-row {
+            font-size: 11pt;
+            font-weight: 700;
+            background: #e5e7eb;
+        }
+
+        .net-income-row.positive td {
+            color: #166534;
+        }
+
+        .net-income-row.negative td {
+            color: #991b1b;
+        }
+
+        @media print {
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+        }
+
+        /* Screen-only styles for the print preview */
+        @media screen {
+            body {
+                max-width: 8.5in;
+                margin: 1rem auto;
+                padding: 1rem;
+                background: white;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+
+            .print-actions {
+                position: fixed;
+                top: 1rem;
+                right: 1rem;
+                display: flex;
+                gap: 0.5rem;
+                z-index: 100;
+            }
+
+            .print-actions .btn {
+                padding: 0.5rem 1rem;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 0.9rem;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
+            }
+
+            .btn-print {
+                background: #2563eb;
+                color: white;
+            }
+
+            .btn-print:hover {
+                background: #1d4ed8;
+            }
+
+            .btn-back {
+                background: #6b7280;
+                color: white;
+            }
+
+            .btn-back:hover {
+                background: #4b5563;
+            }
+        }
+
+        @media print {
+            .print-actions {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-actions">
+        <button class="btn btn-print" onclick="window.print()">Print</button>
+        <a href="{{ back_url }}" class="btn btn-back">Back</a>
+    </div>
+
+    <div class="report-header">
+        <div class="company-name">Ardua Books</div>
+        <h1 class="report-title">{{ report_title }}</h1>
+        {% if date_range %}
+        <p class="report-date-range">{{ date_range }}</p>
+        {% endif %}
+        <p class="report-generated">Generated: {% now "F j, Y g:i A" %}</p>
+    </div>
+
+    {% block report_content %}{% endblock %}
+</body>
+</html>
