@@ -167,7 +167,7 @@ class Command(BaseCommand):
     def import_data(self, input_dir, metadata_only, skip_existing=False):
         """Import data from JSON files."""
         from django.apps import apps
-        from django.db import transaction
+        from django.db import transaction, IntegrityError
 
         if not os.path.exists(input_dir):
             raise CommandError(f"Input directory does not exist: {input_dir}")
@@ -192,65 +192,74 @@ class Command(BaseCommand):
             if f.endswith('.json') and f != 'manifest.json'
         ])
 
+        # Always skip contenttypes - Django auto-creates these and PKs differ between databases
+        json_files = [f for f in json_files if 'contenttype' not in f.lower()]
+
         if metadata_only:
             # Filter to only metadata files
             metadata_prefixes = set()
             for idx, model_label in enumerate(METADATA_MODELS, start=1):
                 app_label, model_name = model_label.split('.')
                 metadata_prefixes.add(f"{idx:02d}_{app_label}_{model_name}")
-            # Also include contenttypes
-            metadata_prefixes.add("00_contenttypes")
 
             json_files = [
                 f for f in json_files
-                if any(f.startswith(p) for p in metadata_prefixes) or f.startswith("00_")
+                if any(f.startswith(p) for p in metadata_prefixes)
             ]
 
         total_imported = 0
         total_skipped = 0
 
-        with transaction.atomic():
-            for filename in json_files:
-                filepath = os.path.join(input_dir, filename)
+        for filename in json_files:
+            filepath = os.path.join(input_dir, filename)
 
-                with open(filepath, 'r') as f:
-                    data = f.read()
+            with open(filepath, 'r') as f:
+                data = f.read()
 
-                try:
-                    # Deserialize and save
-                    objects = list(serializers.deserialize('json', data))
-                    count = 0
-                    skipped = 0
+            try:
+                # Deserialize objects
+                objects = list(serializers.deserialize('json', data))
+                count = 0
+                skipped = 0
 
-                    for obj in objects:
-                        if skip_existing:
-                            # Check if this record already exists
-                            model_class = obj.object.__class__
-                            pk = obj.object.pk
+                for obj in objects:
+                    model_class = obj.object.__class__
+                    pk = obj.object.pk
 
-                            if pk is not None and model_class.objects.filter(pk=pk).exists():
-                                skipped += 1
-                                continue
+                    if skip_existing:
+                        # Check if this record already exists by PK
+                        if pk is not None and model_class.objects.filter(pk=pk).exists():
+                            skipped += 1
+                            continue
 
-                        obj.save()
+                    # Try to save, handling unique constraint violations
+                    try:
+                        with transaction.atomic():
+                            obj.save()
                         count += 1
+                    except IntegrityError as e:
+                        if skip_existing:
+                            # Unique constraint violation - skip this record
+                            skipped += 1
+                        else:
+                            raise
 
-                    if skipped > 0:
-                        self.stdout.write(
-                            f"  {filename}: {count} imported, "
-                            f"{self.style.WARNING(f'{skipped} skipped (existing)')}"
-                        )
-                    else:
-                        self.stdout.write(f"  {filename}: {count} records imported")
-
-                    total_imported += count
-                    total_skipped += skipped
-
-                except Exception as e:
+                if skipped > 0:
                     self.stdout.write(
-                        self.style.ERROR(f"  {filename}: ERROR - {e}")
+                        f"  {filename}: {count} imported, "
+                        f"{self.style.WARNING(f'{skipped} skipped (existing)')}"
                     )
-                    raise
+                else:
+                    self.stdout.write(f"  {filename}: {count} records imported")
+
+                total_imported += count
+                total_skipped += skipped
+
+            except Exception as e:
+                self.stdout.write(
+                    self.style.ERROR(f"  {filename}: ERROR - {e}")
+                )
+                raise
 
         self.stdout.write("-" * 50)
         summary = f"Import complete! {total_imported} records imported"
