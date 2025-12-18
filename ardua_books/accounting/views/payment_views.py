@@ -28,6 +28,7 @@ from accounting.models import (
 from accounting.services.payment_allocation import build_formset
 from accounting.services.banking import BankTransactionService
 from billing.models import Client, Invoice, InvoiceStatus
+from accounting.views.mixins import FilterPersistenceMixin
 
 
 # Pagination settings
@@ -35,11 +36,15 @@ DEFAULT_PAGE_SIZE = 20
 PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 
-class PaymentListView(ListView):
+class PaymentListView(FilterPersistenceMixin, ListView):
     model = Payment
     template_name = "accounting/payment_list.html"
     context_object_name = "payments"
     paginate_by = None  # We handle pagination manually
+
+    # Filter persistence
+    filter_persistence_key = "payment_list_filters"
+    filter_params = ["client", "date_preset", "date_from", "date_to", "per_page"]
 
     def get_queryset(self):
         qs = super().get_queryset().order_by("-date")

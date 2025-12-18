@@ -7,10 +7,15 @@ from django.core.paginator import Paginator
 from django.views.generic import ListView, DetailView, TemplateView
 
 from accounting.models import JournalEntry, JournalLine
+from accounting.views.mixins import FilterPersistenceMixin
 
 
-class JournalEntryListView(TemplateView):
+class JournalEntryListView(FilterPersistenceMixin, TemplateView):
     template_name = "accounting/journal_entry_list.html"
+
+    # Filter persistence
+    filter_persistence_key = "journal_list_filters"
+    filter_params = ["date_preset", "date_from", "date_to", "per_page"]
 
     DEFAULT_PAGE_SIZE = 25
     PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
