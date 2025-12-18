@@ -1,111 +1,320 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1>Invoice {{ invoice.invoice_number }}</h1>
+<div class="invoice-header">
+    <div class="invoice-title-section">
+        <h1>Invoice {{ invoice.invoice_number }}</h1>
+        <p class="invoice-status status-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</p>
+    </div>
+    <div class="invoice-actions">
+        <div class="btn-group">
+            <a href="{% url 'billing:invoice_print' invoice.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Print Preview">Print</a>
+            <a href="{% url 'billing:invoice_print_pdf' invoice.pk %}" class="btn btn-outline-secondary btn-sm" title="Download PDF">PDF</a>
+        </div>
+        <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary btn-sm">Back to Invoices</a>
+    </div>
+</div>
 
-<p>Status: <strong>{{ invoice.get_status_display }}</strong></p>
+<div class="invoice-details card">
+    <div class="detail-row">
+        <span class="detail-label">Client:</span>
+        <span class="detail-value">{{ invoice.client }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Issue Date:</span>
+        <span class="detail-value">{{ invoice.issue_date }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Due Date:</span>
+        <span class="detail-value">{{ invoice.due_date }}</span>
+    </div>
+    {% if invoice.notes %}
+    <div class="detail-row">
+        <span class="detail-label">Notes:</span>
+        <span class="detail-value">{{ invoice.notes|linebreaksbr }}</span>
+    </div>
+    {% endif %}
+</div>
 
-<p>Client: {{ invoice.client }}</p>
-<p>Issue Date: {{ invoice.issue_date }}</p>
-<p>Due Date: {{ invoice.due_date }}</p>
-
-{% if invoice.notes %}
-  <p><strong>Notes:</strong> {{ invoice.notes|linebreaksbr }}</p>
-{% endif %}
-
-<h3>Line Items</h3>
-<table class="table">
-  <thead>
-    <tr>
-      <th>Type</th><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for line in invoice.lines.all %}
-    <tr>
-      <td>{{ line.get_line_type_display }}</td>
-      <td>{{ line.description }}</td>
-      <td>{{ line.quantity }}</td>
-      <td>{{ line.unit_price }}</td>
-      <td>{{ line.line_total|floatformat:2 }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<h4>Totals</h4>
-<p>Subtotal: {{ invoice.subtotal }}</p>
-<p>Tax: {{ invoice.tax_total }}</p>
-<p>Total: {{ invoice.total }}</p>
-
-<hr>
-
-<h3>Actions</h3>
-{% if invoice.status == InvoiceStatus.DRAFT %}
-  <a class="btn btn-success" href="{% url 'billing:invoice_change_status' invoice.pk 'issue' %}">Issue Invoice</a>
-  <a class="btn btn-danger" href="{% url 'billing:invoice_change_status' invoice.pk 'void' %}">Void Invoice</a>
-  <a class="btn btn-primary" href="{% url 'billing:invoice_update' invoice.pk %}">Edit Invoice</a>
-
-{% elif invoice.status == InvoiceStatus.ISSUED %}
-  <a class="btn btn-primary" href="{% url 'billing:invoice_change_status' invoice.pk 'pay' %}">Mark Paid</a>
-
-  <a class="btn btn-warning"
-     href="{% url 'billing:invoice_change_status' invoice.pk 'return_to_draft' %}">
-      Return to Draft
-  </a>
-
-  <a class="btn btn-danger"
-     href="{% url 'billing:invoice_change_status' invoice.pk 'void' %}">Void Invoice</a>
-
-{% endif %}
-<a class="btn btn-secondary" href="{% url 'billing:invoice_print' invoice.pk %}" target="_blank">Print</a>
-<a class="btn btn-secondary" href="{% url 'billing:invoice_print_pdf' invoice.pk %}">Download PDF</a>
-
-
-<hr>
-
-<h3>Accounting History</h3>
-<ul>
-  {% for je in journal_entries %}
-    <li>
-      <a href="{% url 'accounting:journal_detail' je.id %}">
-        JE {{ je.id }}
-      </a>
-        -
-        {{ je.posted_at }} 
-        — {{ je.description }}
-    </li>
-  {% empty %}
-    <li>No entries</li>
-  {% endfor %}
-</ul>
-
-<hr>
-  <h3>Payments Applied</h3>
+<div class="invoice-lines card">
+    <h3>Line Items</h3>
     <table class="table">
-      <tr><th>Date</th><th>Amount</th><th>Status</th><th></th></tr>
-      {% for app in invoice.paymentapplication_set.all %}
-      <tr>
-        <td>{{ app.payment.date }}</td>
-        <td>${{ app.amount|floatformat:2 }}</td>
-        <td>
-          {% if app.payment.bank_transactions.exists %}
-            <span class="badge bg-success">Matched</span>
-          {% else %}
-            <span class="badge bg-warning text-dark">Unmatched</span>
-          {% endif %}
-        </td>
-        <td>
-          <a href="{% url 'accounting:payment_detail' app.payment.id %}" class="btn btn-sm btn-secondary">View Payment</a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="4">No payments applied</td></tr>
-      {% endfor %}
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Description</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Unit Price</th>
+                <th class="text-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in invoice.lines.all %}
+            <tr>
+                <td>{{ line.get_line_type_display }}</td>
+                <td>{{ line.description }}</td>
+                <td class="text-right">{{ line.quantity }}</td>
+                <td class="text-right">${{ line.unit_price|floatformat:2 }}</td>
+                <td class="text-right">${{ line.line_total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="subtotal-row">
+                <td colspan="4" class="text-right">Subtotal:</td>
+                <td class="text-right">${{ invoice.subtotal|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td colspan="4" class="text-right">Tax:</td>
+                <td class="text-right">${{ invoice.tax_total|floatformat:2 }}</td>
+            </tr>
+            <tr class="total-row">
+                <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                <td class="text-right"><strong>${{ invoice.total|floatformat:2 }}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<div class="invoice-section card">
+    <h3>Actions</h3>
+    {% if invoice.status == InvoiceStatus.DRAFT %}
+        <div class="action-buttons">
+            <a class="btn btn-success" href="{% url 'billing:invoice_change_status' invoice.pk 'issue' %}">Issue Invoice</a>
+            <a class="btn btn-primary" href="{% url 'billing:invoice_update' invoice.pk %}">Edit Invoice</a>
+            <a class="btn btn-danger" href="{% url 'billing:invoice_change_status' invoice.pk 'void' %}">Void Invoice</a>
+        </div>
+    {% elif invoice.status == InvoiceStatus.ISSUED %}
+        <div class="action-buttons">
+            <a class="btn btn-primary" href="{% url 'billing:invoice_change_status' invoice.pk 'pay' %}">Mark Paid</a>
+            <a class="btn btn-warning" href="{% url 'billing:invoice_change_status' invoice.pk 'return_to_draft' %}">Return to Draft</a>
+            <a class="btn btn-danger" href="{% url 'billing:invoice_change_status' invoice.pk 'void' %}">Void Invoice</a>
+        </div>
+    {% else %}
+        <p class="no-actions-message">This invoice cannot be changed.</p>
+    {% endif %}
+</div>
+
+<div class="invoice-section card">
+    <h3>Payments Applied</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th class="text-right">Amount</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in invoice.paymentapplication_set.all %}
+            <tr>
+                <td>{{ app.payment.date }}</td>
+                <td class="text-right">${{ app.amount|floatformat:2 }}</td>
+                <td>
+                    {% if app.payment.bank_transactions.exists %}
+                        <span class="badge bg-success">Matched</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Unmatched</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'accounting:payment_detail' app.payment.id %}" class="btn btn-sm btn-secondary">View Payment</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="text-muted">No payments applied</td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
 
-    <p><strong>Outstanding Balance:</strong> ${{ invoice.outstanding_balance|floatformat:2 }}</p>
-    <a class="btn btn-primary" href="{% url 'billing:payment_apply_invoice' invoice.id%}">Apply Payment</a>
+    <div class="outstanding-balance">
+        <strong>Outstanding Balance:</strong> ${{ invoice.outstanding_balance|floatformat:2 }}
+    </div>
+
+    {% if invoice.status == InvoiceStatus.ISSUED and invoice.outstanding_balance > 0 %}
+    <div class="payment-action">
+        <a class="btn btn-primary" href="{% url 'billing:payment_apply_invoice' invoice.id %}">Apply Payment</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="invoice-section card">
+    <h3>Accounting History</h3>
+    <ul class="journal-entry-list">
+        {% for je in journal_entries %}
+        <li>
+            <a href="{% url 'accounting:journal_detail' je.id %}">JE #{{ je.id }}</a>
+            <span class="je-date">{{ je.posted_at|date:"m/d/Y" }}</span>
+            <span class="je-description">{{ je.description }}</span>
+        </li>
+        {% empty %}
+        <li class="text-muted">No journal entries</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<style>
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.invoice-title-section h1 {
+    margin: 0 0 0.25rem 0;
+}
+
+.invoice-status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.invoice-status.status-draft {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.invoice-status.status-issued {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.invoice-status.status-paid {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.invoice-status.status-void {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.invoice-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.invoice-details {
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-row {
+    display: flex;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #6b7280;
+    width: 120px;
+    flex-shrink: 0;
+}
+
+.detail-value {
+    color: #111827;
+}
+
+.invoice-lines {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.invoice-lines h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.invoice-lines .table {
+    margin-bottom: 0;
+}
+
+.subtotal-row td {
+    border-top: 2px solid #e5e7eb;
+}
+
+.total-row td {
+    font-size: 1.1rem;
+}
+
+.invoice-section {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.invoice-section h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.no-actions-message {
+    color: #6b7280;
+    font-style: italic;
+    margin: 0;
+}
+
+.outstanding-balance {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    font-size: 1.1rem;
+}
+
+.payment-action {
+    margin-top: 1rem;
+}
+
+.journal-entry-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.journal-entry-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.journal-entry-list li:last-child {
+    border-bottom: none;
+}
+
+.je-date {
+    color: #6b7280;
+    margin: 0 0.5rem;
+}
+
+.je-description {
+    color: #374151;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-muted {
+    color: #6b7280;
+}
+</style>
 
 {% endblock %}
-
