@@ -136,6 +136,15 @@ td, th {
   position: relative;
 }
 
+.app-nav-dropdown .nav-dropdown-trigger {
+  cursor: pointer;
+  list-style: none;
+}
+
+.app-nav-dropdown .nav-dropdown-trigger::-webkit-details-marker {
+  display: none;
+}
+
 .app-nav-dropdown .nav-dropdown-trigger::after {
   content: "▾";
   font-size: 0.75rem;
@@ -170,7 +179,7 @@ td, th {
   text-decoration: none;
 }
 
-.app-nav-dropdown:hover .dropdown-menu {
+.app-nav-dropdown[open] .dropdown-menu {
   display: block;
 }
 

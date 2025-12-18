@@ -34,13 +34,13 @@
           <a href="{% url 'billing:timeentry_list' %}">Time</a>
           <a href="{% url 'billing:expense_list' %}">Expenses</a>
           <a href="{% url 'billing:invoice_list' %}">Invoices</a>
-          <div class="app-nav-dropdown">
-            <a href="#" class="nav-dropdown-trigger">Payments</a>
+          <details class="app-nav-dropdown">
+            <summary class="nav-dropdown-trigger">Payments</summary>
             <div class="dropdown-menu">
               <a href="{% url 'accounting:payment_create_general' %}">Record Payment</a>
               <a href="{% url 'accounting:payment_list' %}">Payment History</a>
             </div>
-          </div>
+          </details>
           <a href="{% url 'accounting:bankaccount_list' %}">Bank Accounts</a>
           <a href="{% url 'accounting:home' %}">Reports</a>
         </nav>
