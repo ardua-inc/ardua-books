@@ -30,7 +30,10 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-secret-key")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 
-# Application version (git commit SHA, set during Docker build)
+# Application version
+# VERSION: Manually updated semantic version (update when releasing)
+# APP_VERSION: Git commit SHA (auto-set during Docker build)
+VERSION = "1.0.0"
 APP_VERSION = os.getenv("APP_VERSION", "dev")
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")

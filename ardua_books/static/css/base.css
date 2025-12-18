@@ -92,26 +92,76 @@ td, th {
   color: #ffffff;
 }
 
+/* ---- Shared dropdown styles ---- */
+.dropdown-panel {
+  position: absolute;
+  background-color: #ffffff;
+  border-radius: 6px;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem 0;
+  z-index: 1000;
+}
+
+.dropdown-panel a,
+.dropdown-panel button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  color: #374151;
+  text-decoration: none;
+  font-size: 0.9rem;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.dropdown-panel a:hover,
+.dropdown-panel button:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+  text-decoration: none;
+}
+
+.dropdown-panel hr {
+  margin: 0.5rem 0;
+  border: none;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* ---- Nav dropdown (Payments) ---- */
 .app-nav-dropdown {
   position: relative;
 }
 
 .app-nav-dropdown .dropdown-menu {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 0.5rem);
   left: 0;
   display: none;
-  background: black;
-  border: 1px solid #ccc;
-  padding: 0.5rem 0;
+  background-color: #ffffff;
+  border-radius: 6px;
   min-width: 180px;
-  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem 0;
+  z-index: 1000;
 }
 
 .app-nav-dropdown .dropdown-menu a {
   display: block;
-  padding: 0.25rem 0.75rem;
+  padding: 0.5rem 1rem;
+  color: #374151;
   white-space: nowrap;
+  text-decoration: none;
+}
+
+.app-nav-dropdown .dropdown-menu a:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+  text-decoration: none;
 }
 
 .app-nav-dropdown:hover .dropdown-menu {
@@ -119,7 +169,6 @@ td, th {
 }
 
 /* ---- User menu dropdown ---- */
-
 .app-user-menu {
   position: relative;
   margin-left: auto;
@@ -134,6 +183,25 @@ td, th {
   font-size: 0.95rem;
   display: inline-flex;
   align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.app-user-menu > summary:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-user-menu[open] > summary {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Add dropdown caret */
+.app-user-menu > summary::after {
+  content: "▾";
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
 }
 
 /* Hide the default disclosure arrow in most browsers */
@@ -141,38 +209,63 @@ td, th {
   display: none;
 }
 
-/* Extra belt-and-suspenders for other engines */
 .app-user-menu > summary::marker {
   content: "";
 }
 
-/* Remove the custom caret we added earlier (delete any summary::after rule) */
-
 /* Dropdown panel */
-.app-user-dropdown {
+.app-user-menu-content {
   position: absolute;
   right: 0;
-  margin-top: 8px;
-  background-color: #111827;
-  border-radius: 4px;
-  min-width: 140px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-  padding: 4px 0;
+  top: calc(100% + 0.5rem);
+  background-color: #ffffff;
+  border-radius: 6px;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem 0;
   z-index: 1000;
 }
 
 /* Links inside dropdown */
-.app-user-dropdown a {
+.app-user-menu-content a {
   display: block;
-  padding: 6px 12px;
-  color: #e5e7eb;
+  padding: 0.5rem 1rem;
+  color: #374151;
   text-decoration: none;
   white-space: nowrap;
   font-size: 0.9rem;
 }
 
-.app-user-dropdown a:hover {
-  background-color: #374151;
+.app-user-menu-content a:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+  text-decoration: none;
+}
+
+/* Logout button styled as link */
+.app-user-menu-content form {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+.app-user-menu-content button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  color: #374151;
+  text-decoration: none;
+  font-size: 0.9rem;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.app-user-menu-content button:hover {
+  background-color: #f3f4f6;
+  color: #111827;
 }
 
 /* Optional: login link when not authenticated */

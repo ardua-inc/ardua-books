@@ -10,9 +10,19 @@
             <tr>
                 <th>Version:</th>
                 <td>
-                    <code class="version-code">{{ version_short }}</code>
-                    {% if version != version_short %}
-                    <span class="version-full text-muted">({{ version }})</span>
+                    <code class="version-code">{{ full_version }}</code>
+                </td>
+            </tr>
+            <tr>
+                <th>Release:</th>
+                <td>{{ version }}</td>
+            </tr>
+            <tr>
+                <th>Build:</th>
+                <td>
+                    <code class="build-code">{{ git_sha_short }}</code>
+                    {% if git_sha != git_sha_short %}
+                    <span class="git-sha-full text-muted">({{ git_sha }})</span>
                     {% endif %}
                 </td>
             </tr>
@@ -71,15 +81,25 @@
 }
 
 .version-code {
-    background: #f3f4f6;
+    background: #dbeafe;
+    color: #1e40af;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-size: 0.95rem;
+    font-weight: 600;
 }
 
-.version-full {
-    font-size: 0.85rem;
+.build-code {
+    background: #f3f4f6;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.git-sha-full {
+    font-size: 0.8rem;
     margin-left: 0.5rem;
+    word-break: break-all;
 }
 
 .about-section ul {
