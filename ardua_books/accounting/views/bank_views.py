@@ -33,6 +33,7 @@ from accounting.models import (
 )
 from accounting.services.banking import BankAccountService, BankTransactionService
 from accounting.services.importing import normalize_amount
+from accounting.views.mixins import FilterPersistenceMixin
 
 
 class BankAccountListView(ListView):
@@ -167,12 +168,19 @@ class OffsetAccountFilterView(View):
         return HttpResponse(html)
 
 
-class BankRegisterView(TemplateView):
+class BankRegisterView(FilterPersistenceMixin, TemplateView):
     template_name = "accounting/bank_register.html"
+
+    # Filter persistence settings
+    filter_params = ["date_preset", "date_from", "date_to", "show", "per_page"]
 
     # Pagination settings
     DEFAULT_PAGE_SIZE = 50
     PAGE_SIZE_OPTIONS = [20, 50, 100, 200]
+
+    def get_filter_persistence_key(self):
+        # Include bank account ID so each account has its own saved filters
+        return f"bank_register_filters_{self.kwargs.get('pk')}"
 
     def get_context_data(self, **kwargs):
         from django.core.paginator import Paginator
