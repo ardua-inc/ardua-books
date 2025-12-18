@@ -405,6 +405,11 @@ class BankTransactionService:
                 "Please assign a GL account to this category first."
             )
 
+        # Delete the original JE from post_transaction() to avoid double-posting
+        if txn.journal_entry:
+            txn.journal_entry.delete()
+            txn.journal_entry = None
+
         # Update expense with payment account
         expense.payment_account = txn.bank_account
         expense.save(update_fields=["payment_account"])
@@ -476,6 +481,14 @@ class BankTransactionService:
             raise ValueError(
                 f"Transaction amounts don't match: ${abs(txn_from.amount)} vs ${abs(txn_to.amount)}"
             )
+
+        # Delete original JEs from post_transaction() to avoid double-posting
+        if txn_from.journal_entry:
+            txn_from.journal_entry.delete()
+            txn_from.journal_entry = None
+        if txn_to.journal_entry:
+            txn_to.journal_entry.delete()
+            txn_to.journal_entry = None
 
         # Determine which is the source (withdrawal) and destination (deposit)
         # Source should be negative (money leaving), destination positive (money arriving)

@@ -221,23 +221,18 @@ class BankAccount(models.Model):
     @property
     def balance(self):
         """
-        Computes the account balance by summing related JournalEntry lines.
-        (Debits increase assets; credits decrease.)
+        Computes the account balance from BankTransaction records.
+        This is the source of truth for bank account balances.
+
+        Balance = opening_balance + sum of all transaction amounts
         """
         from django.db.models import Sum
-        from accounting.models import JournalLine
 
-        total_debits = (
-            JournalLine.objects.filter(account=self.account).aggregate(
-                s=Sum("debit")
-            )["s"] or Decimal("0")
+        txn_sum = (
+            self.transactions.aggregate(s=Sum("amount"))["s"]
+            or Decimal("0")
         )
-        total_credits = (
-            JournalLine.objects.filter(account=self.account).aggregate(
-                s=Sum("credit")
-            )["s"] or Decimal("0")
-        )
-        return total_debits - total_credits
+        return (self.opening_balance or Decimal("0")) + txn_sum
 
     
 class BankTransaction(models.Model):
