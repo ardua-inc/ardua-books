@@ -65,6 +65,7 @@
               {% if request.user.is_staff %}
                 <a href="{% url 'admin:index' %}">Admin</a>
               {% endif %}
+              <a href="{% url 'about' %}">About</a>
               <form action="{% url 'logout' %}" method="post">
                 {% csrf_token %}
                 <button type="submit">Log out</button>

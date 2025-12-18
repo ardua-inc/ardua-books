@@ -22,9 +22,11 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: ./ardua_books 
+          context: ./ardua_books
           file: ./ardua_books/Dockerfile
           push: true
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
           tags: |
             ghcr.io/jimatardua/ardua-books:latest
             ghcr.io/jimatardua/ardua-books:${{ github.sha }}

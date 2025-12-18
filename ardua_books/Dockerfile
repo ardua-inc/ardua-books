@@ -1,7 +1,11 @@
 FROM python:3.11-slim
 
+# Build arg for version (git commit SHA)
+ARG GIT_COMMIT=dev
+
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    APP_VERSION=$GIT_COMMIT
 
 # System dependencies (Postgres client, WeasyPrint deps, etc.)
 RUN apt-get update && apt-get install -y \
