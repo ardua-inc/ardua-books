@@ -176,11 +176,32 @@ class Invoice(TimeStampedModel):
         self.full_clean()
         # Auto-numbering only if invoice_number is blank
         if not self.invoice_number:
-            last = Invoice.objects.order_by("-sequence").first()
-            next_seq = (last.sequence + 1) if last else 1
-            self.sequence = next_seq
-            self.invoice_number = f"{next_seq:05d}"
+            self.invoice_number = self._generate_next_invoice_number()
         super().save(*args, **kwargs)
+
+    @staticmethod
+    def _generate_next_invoice_number():
+        """
+        Find the highest existing invoice number and increment by 1.
+        Handles various formats: "668", "00001", "2025-001", etc.
+        """
+        import re
+
+        max_num = 0
+        for inv in Invoice.objects.only("invoice_number"):
+            # Extract all digits from the invoice number
+            digits = re.findall(r'\d+', inv.invoice_number)
+            if digits:
+                # Use the last group of digits (handles "2025-001" -> 1, "668" -> 668)
+                # But for plain numbers, use the whole thing
+                if inv.invoice_number.isdigit():
+                    num = int(inv.invoice_number)
+                else:
+                    # For formatted numbers like "2025-001", use just the sequence part
+                    num = int(digits[-1])
+                max_num = max(max_num, num)
+
+        return str(max_num + 1)
 
     def clean(self):
         super().clean()
