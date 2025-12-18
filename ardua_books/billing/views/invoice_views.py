@@ -36,10 +36,15 @@ from billing.services import (
     mark_te_ex_unbilled_keep_invoice_lines,
 )
 from accounting.models import JournalEntry
+from accounting.views.mixins import FilterPersistenceMixin
 
 
-class InvoiceListView(LoginRequiredMixin, TemplateView):
+class InvoiceListView(FilterPersistenceMixin, LoginRequiredMixin, TemplateView):
     template_name = "billing/invoice_list.html"
+
+    # Filter persistence
+    filter_persistence_key = "invoice_list_filters"
+    filter_params = ["client", "status", "date_preset", "date_from", "date_to", "per_page"]
 
     DEFAULT_PAGE_SIZE = 25
     PAGE_SIZE_OPTIONS = [10, 25, 50, 100]

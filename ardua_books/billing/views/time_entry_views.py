@@ -13,10 +13,15 @@ from django.views.generic import ListView, CreateView, UpdateView, TemplateView
 
 from billing.models import Client, Consultant, TimeEntry, BillableStatus
 from billing.forms import TimeEntryForm
+from accounting.views.mixins import FilterPersistenceMixin
 
 
-class TimeEntryListView(LoginRequiredMixin, TemplateView):
+class TimeEntryListView(FilterPersistenceMixin, LoginRequiredMixin, TemplateView):
     template_name = "billing/timeentry_list.html"
+
+    # Filter persistence
+    filter_persistence_key = "timeentry_list_filters"
+    filter_params = ["client", "consultant", "status", "date_preset", "date_from", "date_to", "per_page"]
 
     DEFAULT_PAGE_SIZE = 25
     PAGE_SIZE_OPTIONS = [10, 25, 50, 100]

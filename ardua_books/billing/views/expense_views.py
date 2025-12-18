@@ -13,10 +13,15 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView, D
 
 from billing.models import Client, Expense, ExpenseCategory, BillableStatus
 from billing.forms import ExpenseForm
+from accounting.views.mixins import FilterPersistenceMixin
 
 
-class ExpenseListView(LoginRequiredMixin, TemplateView):
+class ExpenseListView(FilterPersistenceMixin, LoginRequiredMixin, TemplateView):
     template_name = "billing/expense_list.html"
+
+    # Filter persistence
+    filter_persistence_key = "expense_list_filters"
+    filter_params = ["client", "category", "status", "billable", "date_preset", "date_from", "date_to", "per_page"]
 
     DEFAULT_PAGE_SIZE = 25
     PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
