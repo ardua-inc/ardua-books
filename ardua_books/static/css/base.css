@@ -136,7 +136,7 @@ td, th {
   position: relative;
 }
 
-.app-nav-dropdown .dropdown-toggle::after {
+.app-nav-dropdown .nav-dropdown-trigger::after {
   content: "▾";
   font-size: 0.75rem;
   margin-left: 0.25rem;
