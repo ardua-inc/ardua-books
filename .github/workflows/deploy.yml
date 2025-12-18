@@ -3,7 +3,7 @@ name: Ardua Books CI/CD
 on:
   push:
     branches:
-      - claude
+      - main
 
 jobs:
   build:

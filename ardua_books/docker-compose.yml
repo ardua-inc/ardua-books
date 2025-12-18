@@ -4,9 +4,16 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      db:
+        condition: service_started
+      db-backup:
+        condition: service_started
+      receipts-backup:
+        condition: service_started        
     volumes:
       - media_volume:/app/media
+    ports:
+      - "8000:8000"
     restart: unless-stopped
 
   db:
@@ -21,7 +28,6 @@ services:
     image: prodrigestivill/postgres-backup-local
     env_file:
       - .env
-      - .env.backup
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
@@ -30,27 +36,49 @@ services:
       BACKUP_KEEP_WEEKS: 4
       BACKUP_KEEP_MONTHS: 3
       BACKUP_SUFFIX: .dump
-      S3_PREFIX: postgres
+    volumes:
+      - pg_backups:/backups
     depends_on:
       - db
     restart: unless-stopped
 
+  db-backup-upload:
+    image: rclone/rclone:latest
+    env_file:
+      - .env.backup
+    entrypoint: ["rclone"]
+    command:
+      - sync
+      - /backups
+      - s3:ardua-books-backups/postgres
+      - --config
+      - /config/rclone/rclone.conf
+      - --checksum
+      - --verbose
+    volumes:
+      - pg_backups:/backups:ro
+      - ./rclone:/config/rclone
+    restart: "no"
+
   receipts-backup:
     image: rclone/rclone:latest
+    env_file:
+      - .env.backup
+    entrypoint: ["rclone"]
+    command:  
+      - sync
+      - /data/receipts
+      - s3:ardua-books-backups/receipts
+      - --config
+      - /config/rclone/rclone.conf
+      - --checksum
+      - --verbose
     volumes:
       - media_volume:/data:ro
       - ./rclone:/config/rclone
-    command: >
-      sh -c "
-      while true; do
-        rclone sync /data/receipts s3:ardua-books-backups/receipts
-          --config /config/rclone/rclone.conf
-          --checksum --verbose;
-        sleep 86400;
-      done
-      "
-    restart: unless-stopped
+    restart: no
 
 volumes:
   db_data:
   media_volume:
+  pg_backups:
