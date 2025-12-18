@@ -136,6 +136,12 @@ td, th {
   position: relative;
 }
 
+.app-nav-dropdown .dropdown-toggle::after {
+  content: "▾";
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
+}
+
 .app-nav-dropdown .dropdown-menu {
   position: absolute;
   top: calc(100% + 0.5rem);
