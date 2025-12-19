@@ -82,6 +82,9 @@ class InvoiceCreateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["invoice_number"].required = False
         self.fields["due_date"].required = False
+        # Pre-fill with next auto-generated number, but allow override
+        if not self.initial.get("invoice_number"):
+            self.initial["invoice_number"] = Invoice._generate_next_invoice_number()
 
 class InvoiceUpdateForm(forms.ModelForm):
     class Meta:
