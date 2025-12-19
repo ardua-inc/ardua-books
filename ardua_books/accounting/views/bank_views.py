@@ -23,6 +23,7 @@ from accounting.forms import (
     LinkPaymentToTransactionForm,
     BankTransactionLinkExpenseForm,
     BankTransactionMatchTransferForm,
+    ExpenseMatchFormSet,
 )
 from accounting.models import (
     ChartOfAccount,
@@ -564,3 +565,212 @@ def banktransaction_match_transfer(request, pk):
             "has_matching_transactions": has_matching_transactions,
         },
     )
+
+
+class BatchMatchExpensesView(FilterPersistenceMixin, TemplateView):
+    """
+    Batch matching view for expense transactions.
+    Shows all unmatched withdrawals and allows selecting an existing expense
+    or creating a new expense by category for each transaction.
+    """
+    template_name = "accounting/batch_match_expenses.html"
+
+    filter_params = ["date_preset", "date_from", "date_to", "per_page"]
+    DEFAULT_PAGE_SIZE = 50
+    PAGE_SIZE_OPTIONS = [20, 50, 100, 200]
+
+    def get_filter_persistence_key(self):
+        return f"batch_match_expenses_filters_{self.kwargs.get('pk')}"
+
+    def get_context_data(self, **kwargs):
+        from django.core.paginator import Paginator
+        from billing.models import Expense
+
+        ctx = super().get_context_data(**kwargs)
+
+        bank_account = get_object_or_404(BankAccount, pk=self.kwargs["pk"])
+        today = date.today()
+
+        # Get filter parameters
+        date_preset = self.request.GET.get("date_preset", "last90")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        # Determine date range
+        if date_preset == "mtd":
+            from_date = today.replace(day=1)
+            to_date = today
+        elif date_preset == "ytd":
+            from_date = today.replace(month=1, day=1)
+            to_date = today
+        elif date_preset == "last_year":
+            from_date = date(today.year - 1, 1, 1)
+            to_date = date(today.year - 1, 12, 31)
+        elif date_preset == "last30":
+            from_date = today - timedelta(days=30)
+            to_date = today
+        elif date_preset == "last90":
+            from_date = today - timedelta(days=90)
+            to_date = today
+        elif date_preset == "all":
+            from_date = None
+            to_date = None
+        elif date_from or date_to:
+            from_date = date.fromisoformat(date_from) if date_from else None
+            to_date = date.fromisoformat(date_to) if date_to else None
+            date_preset = ""
+        else:
+            from_date = today - timedelta(days=90)
+            to_date = today
+
+        # Query unmatched withdrawals (amount < 0)
+        tx_qs = BankTransaction.objects.filter(
+            bank_account=bank_account,
+            amount__lt=0,  # Withdrawals only
+            payment__isnull=True,
+            expense__isnull=True,
+            transfer_pair__isnull=True,
+        )
+
+        if from_date:
+            tx_qs = tx_qs.filter(date__gte=from_date)
+        if to_date:
+            tx_qs = tx_qs.filter(date__lte=to_date)
+
+        tx_qs = tx_qs.order_by("date", "id")
+
+        # Pagination
+        page_size = self.request.GET.get("per_page", self.DEFAULT_PAGE_SIZE)
+        try:
+            page_size = int(page_size)
+            if page_size not in self.PAGE_SIZE_OPTIONS:
+                page_size = self.DEFAULT_PAGE_SIZE
+        except (ValueError, TypeError):
+            page_size = self.DEFAULT_PAGE_SIZE
+
+        all_transactions = list(tx_qs)
+
+        paginator = Paginator(all_transactions, page_size)
+        page_number = self.request.GET.get("page", 1)
+        page_obj = paginator.get_page(page_number)
+
+        # Build form data for each transaction on this page
+        form_data = []
+        for txn in page_obj:
+            # Find potential expense matches (same absolute amount, not linked)
+            potential_expenses = (
+                Expense.objects
+                .filter(payment_account__isnull=True)
+                .filter(amount=abs(txn.amount))
+                .select_related("category", "client")
+                .order_by("-expense_date")
+            )
+
+            # Build choices for the expense dropdown
+            expense_choices = [("", "-- Select --")]
+            for exp in potential_expenses:
+                client_name = exp.client.name if exp.client else "No Client"
+                label = f"{exp.expense_date} | {exp.category.name} | {client_name} | ${exp.amount}"
+                expense_choices.append((str(exp.id), label))
+
+            form_data.append({
+                "txn": txn,
+                "expense_choices": expense_choices,
+                "has_matches": len(expense_choices) > 1,
+            })
+
+        # Build formset with initial data
+        initial = [
+            {"transaction_id": item["txn"].id}
+            for item in form_data
+        ]
+        formset = ExpenseMatchFormSet(initial=initial, prefix="expenses")
+
+        # Manually set expense choices for each form
+        for i, form in enumerate(formset.forms):
+            form.fields["expense"].choices = form_data[i]["expense_choices"]
+
+        # Zip forms with transaction data
+        forms_with_data = list(zip(formset.forms, form_data))
+
+        ctx.update({
+            "bank_account": bank_account,
+            "formset": formset,
+            "forms_with_data": forms_with_data,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "date_preset": date_preset,
+            "date_from": date_from if not date_preset else "",
+            "date_to": date_to if not date_preset else "",
+            "per_page": page_size,
+            "page_size_options": self.PAGE_SIZE_OPTIONS,
+            "total_unmatched": paginator.count,
+        })
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        from billing.models import Expense
+
+        bank_account = get_object_or_404(BankAccount, pk=self.kwargs["pk"])
+
+        formset = ExpenseMatchFormSet(request.POST, prefix="expenses")
+
+        matched_count = 0
+        created_count = 0
+        errors = []
+
+        if formset.is_valid():
+            with transaction.atomic():
+                for form in formset.forms:
+                    txn_id = form.cleaned_data.get("transaction_id")
+                    expense_id = form.cleaned_data.get("expense")
+                    category = form.cleaned_data.get("category")
+
+                    if not expense_id and not category:
+                        continue  # No action for this row
+
+                    try:
+                        txn = BankTransaction.objects.get(pk=txn_id, bank_account=bank_account)
+                    except BankTransaction.DoesNotExist:
+                        errors.append(f"Transaction {txn_id} not found.")
+                        continue
+
+                    # Skip if already matched
+                    if txn.is_matched:
+                        continue
+
+                    try:
+                        if expense_id:
+                            # Link to existing expense
+                            expense = Expense.objects.get(pk=expense_id)
+                            BankTransactionService.link_expense(txn=txn, expense=expense)
+                            matched_count += 1
+                        elif category:
+                            # Create new expense and link it
+                            expense = Expense.objects.create(
+                                client=None,
+                                category=category,
+                                expense_date=txn.date,
+                                amount=abs(txn.amount),
+                                description=txn.description,
+                                billable=False,
+                            )
+                            BankTransactionService.link_expense(txn=txn, expense=expense)
+                            created_count += 1
+                    except Exception as e:
+                        errors.append(f"Error processing transaction {txn_id}: {e}")
+
+        if matched_count or created_count:
+            msg_parts = []
+            if matched_count:
+                msg_parts.append(f"linked {matched_count} expense(s)")
+            if created_count:
+                msg_parts.append(f"created {created_count} new expense(s)")
+            messages.success(request, "Successfully " + " and ".join(msg_parts) + ".")
+
+        if errors:
+            for error in errors[:5]:  # Show first 5 errors
+                messages.error(request, error)
+
+        # Redirect back to the same page with filters preserved
+        return redirect(request.get_full_path())

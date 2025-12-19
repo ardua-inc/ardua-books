@@ -311,3 +311,58 @@ class CSVImportForm(forms.Form):
         queryset=ChartOfAccount.objects.all(),
         help_text="Choose the account that offsets these imported transactions.",
     )
+
+
+class ExpenseMatchRowForm(forms.Form):
+    """
+    Form for a single row in the batch expense matching table.
+    Each row corresponds to one unmatched withdrawal transaction.
+    """
+    transaction_id = forms.IntegerField(widget=forms.HiddenInput)
+    expense = forms.ChoiceField(
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+    category = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+
+    def __init__(self, *args, expense_choices=None, **kwargs):
+        from billing.models import ExpenseCategory
+        super().__init__(*args, **kwargs)
+
+        # Set expense choices dynamically (passed from view)
+        if expense_choices:
+            self.fields["expense"].choices = expense_choices
+        else:
+            self.fields["expense"].choices = [("", "-- Select --")]
+
+        # Category choices for creating new expense
+        self.fields["category"].queryset = (
+            ExpenseCategory.objects
+            .filter(account__isnull=False)
+            .order_by("name")
+        )
+        self.fields["category"].empty_label = "-- Create New --"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        expense = cleaned_data.get("expense")
+        category = cleaned_data.get("category")
+
+        # Both can be empty (no action taken for this row)
+        # But if both are filled, that's an error
+        if expense and category:
+            raise forms.ValidationError(
+                "Select either an existing expense OR a category to create new, not both."
+            )
+
+        return cleaned_data
+
+
+ExpenseMatchFormSet = formset_factory(
+    ExpenseMatchRowForm,
+    extra=0,
+)

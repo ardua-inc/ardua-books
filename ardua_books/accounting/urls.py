@@ -13,6 +13,7 @@ from .views import (
     BankTransactionCSVImportView,
     banktransaction_link_expense,
     banktransaction_match_transfer,
+    BatchMatchExpensesView,
     JournalEntryListView,
     JournalEntryDetailView,
     PaymentCreateGeneralView,
@@ -134,5 +135,11 @@ urlpatterns = [
     path("transactions/", BankTransactionListView.as_view(), name="banktransaction_list"),
     path("bank-transactions/filter-offset/", OffsetAccountFilterView.as_view(), name="filter_offset_account"),
 
+    # BATCH MATCHING
+    path(
+        "bank-accounts/<int:pk>/match-expenses/",
+        BatchMatchExpensesView.as_view(),
+        name="batch_match_expenses",
+    ),
 ]
 

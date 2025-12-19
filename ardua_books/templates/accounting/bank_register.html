@@ -9,6 +9,7 @@
 <div class="mb-3">
     <a href="{% url 'accounting:banktransaction_create' bank_account.id %}" class="btn btn-primary btn-sm">New Transaction</a>
     <a href="{% url 'accounting:banktransaction_import' bank_account.id %}" class="btn btn-warning btn-sm">Import CSV</a>
+    <a href="{% url 'accounting:batch_match_expenses' bank_account.pk %}" class="btn btn-info btn-sm">Match Expenses</a>
     <a href="{% url 'accounting:bankaccount_list' %}" class="btn btn-secondary btn-sm">All Accounts</a>
 </div>
 
