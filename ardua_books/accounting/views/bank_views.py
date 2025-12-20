@@ -174,7 +174,7 @@ class BankRegisterView(FilterPersistenceMixin, TemplateView):
     template_name = "accounting/bank_register.html"
 
     # Filter persistence settings
-    filter_params = ["date_preset", "date_from", "date_to", "show", "per_page"]
+    filter_params = ["date_preset", "date_from", "date_to", "show", "per_page", "sort"]
 
     # Pagination settings
     DEFAULT_PAGE_SIZE = 50
@@ -246,7 +246,16 @@ class BankRegisterView(FilterPersistenceMixin, TemplateView):
             from django.db.models import Q
             tx_qs = tx_qs.filter(Q(payment__isnull=False) | Q(expense__isnull=False) | Q(transfer_pair__isnull=False))
 
-        tx_qs = tx_qs.order_by("date", "id")
+        # Handle sorting
+        sort_param = self.request.GET.get("sort", "date")
+        sort_field = sort_param.lstrip("-")
+        sort_desc = sort_param.startswith("-")
+
+        if sort_field == "description":
+            tx_qs = tx_qs.order_by("-description" if sort_desc else "description", "date", "id")
+        else:
+            # Default: sort by date
+            tx_qs = tx_qs.order_by("-date" if sort_desc else "date", "id")
 
         # Calculate balance forward (sum of all transactions before from_date)
         if from_date:
@@ -298,6 +307,9 @@ class BankRegisterView(FilterPersistenceMixin, TemplateView):
             "show_filter": show_filter,
             "per_page": page_size,
             "page_size_options": self.PAGE_SIZE_OPTIONS,
+            "sort": sort_param,
+            "sort_field": sort_field,
+            "sort_desc": sort_desc,
         })
         return ctx
 
@@ -576,7 +588,7 @@ class BatchMatchExpensesView(FilterPersistenceMixin, TemplateView):
     """
     template_name = "accounting/batch_match_expenses.html"
 
-    filter_params = ["date_preset", "date_from", "date_to", "per_page"]
+    filter_params = ["date_preset", "date_from", "date_to", "per_page", "sort"]
     DEFAULT_PAGE_SIZE = 50
     PAGE_SIZE_OPTIONS = [20, 50, 100, 200]
 
@@ -638,7 +650,16 @@ class BatchMatchExpensesView(FilterPersistenceMixin, TemplateView):
         if to_date:
             tx_qs = tx_qs.filter(date__lte=to_date)
 
-        tx_qs = tx_qs.order_by("date", "id")
+        # Handle sorting
+        sort_param = self.request.GET.get("sort", "date")
+        sort_field = sort_param.lstrip("-")
+        sort_desc = sort_param.startswith("-")
+
+        if sort_field == "description":
+            tx_qs = tx_qs.order_by("-description" if sort_desc else "description", "date", "id")
+        else:
+            # Default: sort by date
+            tx_qs = tx_qs.order_by("-date" if sort_desc else "date", "id")
 
         # Pagination
         page_size = self.request.GET.get("per_page", self.DEFAULT_PAGE_SIZE)
@@ -706,6 +727,9 @@ class BatchMatchExpensesView(FilterPersistenceMixin, TemplateView):
             "per_page": page_size,
             "page_size_options": self.PAGE_SIZE_OPTIONS,
             "total_unmatched": paginator.count,
+            "sort": sort_param,
+            "sort_field": sort_field,
+            "sort_desc": sort_desc,
         })
         return ctx
 
@@ -785,7 +809,7 @@ class BatchMatchPaymentsView(FilterPersistenceMixin, TemplateView):
     """
     template_name = "accounting/batch_match_payments.html"
 
-    filter_params = ["date_preset", "date_from", "date_to", "per_page"]
+    filter_params = ["date_preset", "date_from", "date_to", "per_page", "sort"]
     DEFAULT_PAGE_SIZE = 50
     PAGE_SIZE_OPTIONS = [20, 50, 100, 200]
 
@@ -847,7 +871,16 @@ class BatchMatchPaymentsView(FilterPersistenceMixin, TemplateView):
         if to_date:
             tx_qs = tx_qs.filter(date__lte=to_date)
 
-        tx_qs = tx_qs.order_by("date", "id")
+        # Handle sorting
+        sort_param = self.request.GET.get("sort", "date")
+        sort_field = sort_param.lstrip("-")
+        sort_desc = sort_param.startswith("-")
+
+        if sort_field == "description":
+            tx_qs = tx_qs.order_by("-description" if sort_desc else "description", "date", "id")
+        else:
+            # Default: sort by date
+            tx_qs = tx_qs.order_by("-date" if sort_desc else "date", "id")
 
         # Pagination
         page_size = self.request.GET.get("per_page", self.DEFAULT_PAGE_SIZE)
@@ -914,6 +947,9 @@ class BatchMatchPaymentsView(FilterPersistenceMixin, TemplateView):
             "per_page": page_size,
             "page_size_options": self.PAGE_SIZE_OPTIONS,
             "total_unmatched": paginator.count,
+            "sort": sort_param,
+            "sort_field": sort_field,
+            "sort_desc": sort_desc,
         })
         return ctx
 
