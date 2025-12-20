@@ -103,8 +103,8 @@ class IncomeStatementView(TemplateView):
         context = super().get_context_data(**kwargs)
         today = date.today()
 
-        # Get date filter parameters
-        date_preset = self.request.GET.get("date_preset", "")
+        # Get date filter parameters - default to YTD
+        date_preset = self.request.GET.get("date_preset", "ytd")
         date_from = self.request.GET.get("date_from", "")
         date_to = self.request.GET.get("date_to", "")
 
@@ -123,13 +123,17 @@ class IncomeStatementView(TemplateView):
         elif date_preset == "last_year":
             from_date = date(today.year - 1, 1, 1)
             to_date = date(today.year - 1, 12, 31)
+        elif date_preset == "all":
+            from_date = None
+            to_date = None
         elif date_from or date_to:
             from_date = date.fromisoformat(date_from) if date_from else None
             to_date = date.fromisoformat(date_to) if date_to else None
             date_preset = ""
         else:
-            from_date = None
-            to_date = None
+            # Default to YTD
+            from_date = today.replace(month=1, day=1)
+            to_date = today
 
         # Build date filter for journal lines
         date_filter = Q()
@@ -309,3 +313,94 @@ class ARAgingView(TemplateView):
         ctx["clients"] = Client.objects.all().order_by("name")
         ctx["client_filter"] = client_filter
         return ctx
+
+
+class AccountDrilldownView(TemplateView):
+    """
+    Drilldown view showing all journal entry lines for a specific account.
+    Provides links to the source documents (Expense, Payment, Invoice, etc.)
+    """
+    template_name = "accounting/account_drilldown.html"
+
+    def get_context_data(self, **kwargs):
+        from django.shortcuts import get_object_or_404
+        from accounting.models import JournalLine, JournalEntry
+        from billing.models import Expense, Invoice
+        from accounting.models import Payment, BankTransaction
+
+        context = super().get_context_data(**kwargs)
+
+        account = get_object_or_404(ChartOfAccount, pk=self.kwargs["pk"])
+        today = date.today()
+
+        # Get date filter parameters from query string
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        # Parse dates
+        from_date = date.fromisoformat(date_from) if date_from else None
+        to_date = date.fromisoformat(date_to) if date_to else None
+
+        # Query journal lines for this account
+        lines = JournalLine.objects.filter(account=account).select_related(
+            "entry", "entry__source_content_type"
+        ).order_by("entry__posted_at", "entry__id")
+
+        if from_date:
+            lines = lines.filter(entry__posted_at__date__gte=from_date)
+        if to_date:
+            lines = lines.filter(entry__posted_at__date__lte=to_date)
+
+        # Enrich each line with source document info
+        enriched_lines = []
+        for line in lines:
+            je = line.entry
+            source_url = None
+            source_label = None
+
+            # Try to get the source document URL
+            if je.source_content_type and je.source_object_id:
+                model_class = je.source_content_type.model_class()
+                model_name = je.source_content_type.model
+
+                try:
+                    if model_name == "expense":
+                        source_url = f"/billing/expenses/{je.source_object_id}/"
+                        source_label = "Expense"
+                    elif model_name == "payment":
+                        source_url = f"/accounting/payments/{je.source_object_id}/"
+                        source_label = "Payment"
+                    elif model_name == "invoice":
+                        source_url = f"/billing/invoices/{je.source_object_id}/"
+                        source_label = "Invoice"
+                    elif model_name == "banktransaction":
+                        # For bank transactions, link to the register
+                        try:
+                            txn = BankTransaction.objects.get(pk=je.source_object_id)
+                            source_url = f"/accounting/bank-accounts/{txn.bank_account_id}/register/"
+                            source_label = "Bank Txn"
+                        except BankTransaction.DoesNotExist:
+                            pass
+                    elif model_name == "bankaccount":
+                        source_url = f"/accounting/bank-accounts/"
+                        source_label = "Bank Account"
+                except Exception:
+                    pass
+
+            enriched_lines.append({
+                "line": line,
+                "je": je,
+                "source_url": source_url,
+                "source_label": source_label,
+            })
+
+        context.update({
+            "account": account,
+            "lines": enriched_lines,
+            "from_date": from_date,
+            "to_date": to_date,
+            "date_from": date_from,
+            "date_to": date_to,
+        })
+
+        return context

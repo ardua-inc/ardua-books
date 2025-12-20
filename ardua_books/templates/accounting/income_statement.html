@@ -36,11 +36,11 @@
         <div class="filter-group">
             <label for="date_preset">Date Range</label>
             <select name="date_preset" id="date_preset" class="auto-submit">
-                <option value="" {% if not date_preset and not date_from %}selected{% endif %}>All time</option>
+                <option value="ytd" {% if date_preset == "ytd" %}selected{% endif %}>Year to date</option>
                 <option value="mtd" {% if date_preset == "mtd" %}selected{% endif %}>Month to date</option>
                 <option value="last_month" {% if date_preset == "last_month" %}selected{% endif %}>Last month</option>
-                <option value="ytd" {% if date_preset == "ytd" %}selected{% endif %}>Year to date</option>
                 <option value="last_year" {% if date_preset == "last_year" %}selected{% endif %}>Last year</option>
+                <option value="all" {% if date_preset == "all" %}selected{% endif %}>All time</option>
                 <option value="custom" {% if date_from or date_to %}selected{% endif %}>Custom range</option>
             </select>
         </div>
@@ -74,10 +74,12 @@
         <table class="report-table">
             <tbody>
             {% for acct in revenue_accounts %}
-                <tr>
+                <tr class="account-row">
                     <td class="text-left">
-                        <span class="account-code">{{ acct.code }}</span>
-                        <span class="account-name">{{ acct.name }}</span>
+                        <a href="{% url 'accounting:account_drilldown' acct.pk %}?date_from={{ from_date|date:'Y-m-d' }}&date_to={{ to_date|date:'Y-m-d' }}" class="account-link">
+                            <span class="account-code">{{ acct.code }}</span>
+                            <span class="account-name">{{ acct.name }}</span>
+                        </a>
                     </td>
                     <td class="text-right amount">{{ acct.balance|currency }}</td>
                 </tr>
@@ -103,10 +105,12 @@
         <table class="report-table">
             <tbody>
             {% for acct in expense_accounts %}
-                <tr>
+                <tr class="account-row">
                     <td class="text-left">
-                        <span class="account-code">{{ acct.code }}</span>
-                        <span class="account-name">{{ acct.name }}</span>
+                        <a href="{% url 'accounting:account_drilldown' acct.pk %}?date_from={{ from_date|date:'Y-m-d' }}&date_to={{ to_date|date:'Y-m-d' }}" class="account-link">
+                            <span class="account-code">{{ acct.code }}</span>
+                            <span class="account-name">{{ acct.name }}</span>
+                        </a>
                     </td>
                     <td class="text-right amount">{{ acct.balance|currency }}</td>
                 </tr>
@@ -278,6 +282,25 @@
 
 .account-name {
     color: #111827;
+}
+
+.account-link {
+    text-decoration: none;
+    display: block;
+}
+
+.account-link:hover {
+    text-decoration: none;
+}
+
+.account-link:hover .account-code,
+.account-link:hover .account-name {
+    color: #0b5ed7;
+}
+
+.account-row:hover {
+    background: #f0f9ff !important;
+    cursor: pointer;
 }
 
 .amount {

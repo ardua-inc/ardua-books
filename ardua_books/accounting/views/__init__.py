@@ -10,6 +10,7 @@ from accounting.views.reports_views import (
     IncomeStatementView,
     ARAgingView,
     ClientBalanceSummaryView,
+    AccountDrilldownView,
 )
 
 from accounting.views.report_exports import (
@@ -91,6 +92,7 @@ __all__ = [
     "IncomeStatementView",
     "ARAgingView",
     "ClientBalanceSummaryView",
+    "AccountDrilldownView",
     # Report exports
     "trial_balance_print",
     "trial_balance_pdf",

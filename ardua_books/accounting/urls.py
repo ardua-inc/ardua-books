@@ -28,6 +28,7 @@ from .views import (
     IncomeStatementView,
     ARAgingView,
     ClientBalanceSummaryView,
+    AccountDrilldownView,
     # Report exports
     trial_balance_print,
     trial_balance_pdf,
@@ -55,6 +56,7 @@ urlpatterns = [
     path("income-statement/print/", income_statement_print, name="income_statement_print"),
     path("income-statement/pdf/", income_statement_pdf, name="income_statement_pdf"),
     path("income-statement/csv/", income_statement_csv, name="income_statement_csv"),
+    path("account/<int:pk>/drilldown/", AccountDrilldownView.as_view(), name="account_drilldown"),
     path("journal/", JournalEntryListView.as_view(), name="journal_list"),
     path("journal/print/", journal_entries_print, name="journal_entries_print"),
     path("journal/pdf/", journal_entries_pdf, name="journal_entries_pdf"),
