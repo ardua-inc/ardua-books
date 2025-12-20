@@ -366,3 +366,30 @@ ExpenseMatchFormSet = formset_factory(
     ExpenseMatchRowForm,
     extra=0,
 )
+
+
+class PaymentMatchRowForm(forms.Form):
+    """
+    Form for a single row in the batch payment matching table.
+    Each row corresponds to one unmatched deposit transaction.
+    """
+    transaction_id = forms.IntegerField(widget=forms.HiddenInput)
+    payment = forms.ChoiceField(
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
+
+    def __init__(self, *args, payment_choices=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Set payment choices dynamically (passed from view)
+        if payment_choices:
+            self.fields["payment"].choices = payment_choices
+        else:
+            self.fields["payment"].choices = [("", "-- Select --")]
+
+
+PaymentMatchFormSet = formset_factory(
+    PaymentMatchRowForm,
+    extra=0,
+)

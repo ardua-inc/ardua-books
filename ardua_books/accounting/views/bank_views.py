@@ -24,6 +24,7 @@ from accounting.forms import (
     BankTransactionLinkExpenseForm,
     BankTransactionMatchTransferForm,
     ExpenseMatchFormSet,
+    PaymentMatchFormSet,
 )
 from accounting.models import (
     ChartOfAccount,
@@ -767,6 +768,193 @@ class BatchMatchExpensesView(FilterPersistenceMixin, TemplateView):
             if created_count:
                 msg_parts.append(f"created {created_count} new expense(s)")
             messages.success(request, "Successfully " + " and ".join(msg_parts) + ".")
+
+        if errors:
+            for error in errors[:5]:  # Show first 5 errors
+                messages.error(request, error)
+
+        # Redirect back to the same page with filters preserved
+        return redirect(request.get_full_path())
+
+
+class BatchMatchPaymentsView(FilterPersistenceMixin, TemplateView):
+    """
+    Batch matching view for payment transactions.
+    Shows all unmatched deposits and allows selecting an existing payment
+    to link to each transaction.
+    """
+    template_name = "accounting/batch_match_payments.html"
+
+    filter_params = ["date_preset", "date_from", "date_to", "per_page"]
+    DEFAULT_PAGE_SIZE = 50
+    PAGE_SIZE_OPTIONS = [20, 50, 100, 200]
+
+    def get_filter_persistence_key(self):
+        return f"batch_match_payments_filters_{self.kwargs.get('pk')}"
+
+    def get_context_data(self, **kwargs):
+        from django.core.paginator import Paginator
+        from accounting.models import Payment
+
+        ctx = super().get_context_data(**kwargs)
+
+        bank_account = get_object_or_404(BankAccount, pk=self.kwargs["pk"])
+        today = date.today()
+
+        # Get filter parameters
+        date_preset = self.request.GET.get("date_preset", "last90")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        # Determine date range
+        if date_preset == "mtd":
+            from_date = today.replace(day=1)
+            to_date = today
+        elif date_preset == "ytd":
+            from_date = today.replace(month=1, day=1)
+            to_date = today
+        elif date_preset == "last_year":
+            from_date = date(today.year - 1, 1, 1)
+            to_date = date(today.year - 1, 12, 31)
+        elif date_preset == "last30":
+            from_date = today - timedelta(days=30)
+            to_date = today
+        elif date_preset == "last90":
+            from_date = today - timedelta(days=90)
+            to_date = today
+        elif date_preset == "all":
+            from_date = None
+            to_date = None
+        elif date_from or date_to:
+            from_date = date.fromisoformat(date_from) if date_from else None
+            to_date = date.fromisoformat(date_to) if date_to else None
+            date_preset = ""
+        else:
+            from_date = today - timedelta(days=90)
+            to_date = today
+
+        # Query unmatched deposits (amount > 0)
+        tx_qs = BankTransaction.objects.filter(
+            bank_account=bank_account,
+            amount__gt=0,  # Deposits only
+            payment__isnull=True,
+            expense__isnull=True,
+            transfer_pair__isnull=True,
+        )
+
+        if from_date:
+            tx_qs = tx_qs.filter(date__gte=from_date)
+        if to_date:
+            tx_qs = tx_qs.filter(date__lte=to_date)
+
+        tx_qs = tx_qs.order_by("date", "id")
+
+        # Pagination
+        page_size = self.request.GET.get("per_page", self.DEFAULT_PAGE_SIZE)
+        try:
+            page_size = int(page_size)
+            if page_size not in self.PAGE_SIZE_OPTIONS:
+                page_size = self.DEFAULT_PAGE_SIZE
+        except (ValueError, TypeError):
+            page_size = self.DEFAULT_PAGE_SIZE
+
+        all_transactions = list(tx_qs)
+
+        paginator = Paginator(all_transactions, page_size)
+        page_number = self.request.GET.get("page", 1)
+        page_obj = paginator.get_page(page_number)
+
+        # Build form data for each transaction on this page
+        form_data = []
+        for txn in page_obj:
+            # Find potential payment matches (same amount, not linked to bank txn)
+            potential_payments = (
+                Payment.objects
+                .filter(bank_transactions__isnull=True)
+                .filter(amount=txn.amount)
+                .select_related("client")
+                .order_by("-date")
+            )
+
+            # Build choices for the payment dropdown
+            payment_choices = [("", "-- Select --")]
+            for pmt in potential_payments:
+                label = f"{pmt.date} | {pmt.client.name} | ${pmt.amount} | {pmt.memo or 'No memo'}"
+                payment_choices.append((str(pmt.id), label))
+
+            form_data.append({
+                "txn": txn,
+                "payment_choices": payment_choices,
+                "has_matches": len(payment_choices) > 1,
+            })
+
+        # Build formset with initial data
+        initial = [
+            {"transaction_id": item["txn"].id}
+            for item in form_data
+        ]
+        formset = PaymentMatchFormSet(initial=initial, prefix="payments")
+
+        # Manually set payment choices for each form
+        for i, form in enumerate(formset.forms):
+            form.fields["payment"].choices = form_data[i]["payment_choices"]
+
+        # Zip forms with transaction data
+        forms_with_data = list(zip(formset.forms, form_data))
+
+        ctx.update({
+            "bank_account": bank_account,
+            "formset": formset,
+            "forms_with_data": forms_with_data,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "date_preset": date_preset,
+            "date_from": date_from if not date_preset else "",
+            "date_to": date_to if not date_preset else "",
+            "per_page": page_size,
+            "page_size_options": self.PAGE_SIZE_OPTIONS,
+            "total_unmatched": paginator.count,
+        })
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        from accounting.models import Payment
+
+        bank_account = get_object_or_404(BankAccount, pk=self.kwargs["pk"])
+
+        formset = PaymentMatchFormSet(request.POST, prefix="payments")
+
+        matched_count = 0
+        errors = []
+
+        if formset.is_valid():
+            with transaction.atomic():
+                for form in formset.forms:
+                    txn_id = form.cleaned_data.get("transaction_id")
+                    payment_id = form.cleaned_data.get("payment")
+
+                    if not payment_id:
+                        continue  # No action for this row
+
+                    try:
+                        txn = BankTransaction.objects.get(pk=txn_id, bank_account=bank_account)
+                    except BankTransaction.DoesNotExist:
+                        errors.append(f"Transaction {txn_id} not found.")
+                        continue
+
+                    # Skip if already matched
+                    if txn.is_matched:
+                        continue
+
+                    try:
+                        payment = Payment.objects.get(pk=payment_id)
+                        BankTransactionService.link_existing_payment(txn=txn, payment=payment)
+                        matched_count += 1
+                    except Exception as e:
+                        errors.append(f"Error processing transaction {txn_id}: {e}")
+
+        if matched_count:
+            messages.success(request, f"Successfully linked {matched_count} payment(s).")
 
         if errors:
             for error in errors[:5]:  # Show first 5 errors

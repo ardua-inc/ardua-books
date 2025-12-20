@@ -1,21 +1,17 @@
 # Backup Architecture — Ardua Books
 
-## Overview
+This document is the **authoritative description** of the Ardua Books backup system.
+It is written so the design does **not** need to be re-reasoned later.
 
-This system implements **container-native, decoupled backups** for Ardua Books, covering:
+---
 
-* **PostgreSQL database**
-* **Receipt/media files**
+## Design Summary (TL;DR)
 
-Backups are created locally, retained with rotation, and **mirrored to Amazon S3**.
-Creation and upload are intentionally **separate steps** to avoid timing coupling and hidden failure modes.
-
-The design prioritizes:
-
-* determinism
-* inspectability
-* idempotence
-* easy restore drills
+* Backups are **created locally**
+* Local backups are **authoritative**
+* Amazon S3 is a **mirror**, not the primary store
+* Uploads use `rclone sync` (rsync-with-delete semantics)
+* **Health sentinels are never written into synced prefixes**
 
 ---
 
@@ -28,62 +24,68 @@ PostgreSQL
 postgres-backup-local (daily, internal cron)
    │
    ▼
-/backups (Docker named volume: pg_backups)
+/backups (Docker volume: pg_backups)
    │
    ▼
-rclone sync (cron, host)
+rclone sync (host cron, hourly)
    │
    ▼
 Amazon S3
+   ├── postgres/
+   ├── receipts/
+   └── _sentinels/
 ```
-
-Receipts follow the same pattern (media volume → rclone → S3).
 
 ---
 
 ## Components
 
-### 1. Database Backup Container (`db-backup`)
+### 1. Database Backup (`db-backup`)
 
 * Image: `prodrigestivill/postgres-backup-local`
-* Runs its **own internal cron**
-* Schedule defined by `SCHEDULE` and `TZ`
-* Writes backups to `/backups` (mounted volume)
+* Runs **internally on a schedule** (`SCHEDULE`, `TZ`)
+* Writes to `/backups` (named Docker volume)
 
-**Retention policy (local & authoritative):**
+**Local structure:**
 
-* Daily backups
-* Weekly backups
-* Monthly backups
-* `last/` directory with timestamped dump
-* `*-latest.dump` symlinks (local convenience only)
+```
+/backups/
+  daily/
+  weekly/
+  monthly/
+  last/
+```
 
-> `/backups` is the source of truth for database backups.
+* Timestamped `.dump` files are authoritative
+* `*-latest.dump` are **symlinks for local convenience only**
 
 ---
 
-### 2. Database Upload Job (`db-backup-upload`)
+### 2. Database Upload (`db-backup-upload`)
 
 * Image: `rclone/rclone`
 * One-shot container
-* Invoked via **host crontab**
-* Command: `rclone sync /backups s3://…/postgres`
+* Triggered by **host cron**
+* Command pattern:
+
+```
+rclone sync /backups s3://ardua-books-backups/postgres
+```
 
 **Important behavior:**
 
 * Equivalent to `rsync --delete`
-* S3 mirrors local retention exactly
-* Symlinks (`*-latest.dump`) are skipped by default
-* Only real dump files are stored in S3
+* Files removed locally are removed from S3
+* Symlinks are skipped (by design)
 
 ---
 
 ### 3. Receipts Backup (`receipts-backup`)
 
-* Image: `rclone/rclone`
-* One-shot container
-* Syncs `/data/receipts` → `s3://…/receipts`
-* Uses same rclone configuration and credentials
+* One-shot `rclone sync`
+* Source: `/data/receipts`
+* Destination: `s3://ardua-books-backups/receipts`
+* Same semantics as DB upload
 
 ---
 
@@ -94,100 +96,123 @@ Receipts follow the same pattern (media volume → rclone → S3).
 * Runs automatically inside container
 * Example:
 
-  ```
-  TZ=America/Los_Angeles
-  SCHEDULE="0 0 * * *"   # daily at midnight local time
-  ```
+```
+TZ=America/Los_Angeles
+SCHEDULE="0 0 * * *"   # daily at midnight local time
+```
 
-### Database upload
+### Upload jobs
 
 * Triggered by host cron
-* Recommended: **hourly**
+* Recommended cadence: **hourly**
 
-  ```
-  15 * * * * docker compose run --rm db-backup-upload
-  ```
-
-This avoids race conditions and removes the need to know *exactly* when the DB backup ran.
+This avoids race conditions and does not rely on knowing exact backup timing.
 
 ---
 
-## Sentinel Files (Health Indicators)
+## Health Sentinels (Critical Rule)
 
-### Upload sentinel (S3)
+### Rule (do not violate)
 
-After a successful upload, cron writes:
+> **Never write sentinel files into an S3 prefix managed by `rclone sync`.**
+
+`rclone sync` will delete any object not present in the source.
+
+---
+
+### Sentinel location (correct)
+
+All sentinels live in a **separate prefix**:
 
 ```
-s3://<bucket>/postgres/.last_success
+s3://ardua-books-backups/_sentinels/
 ```
 
-Contents:
+Examples:
 
 ```
-2025-12-18T01:15:04Z OK
+_sentinels/postgres.last_success
+_sentinels/receipts.last_success
 ```
 
-**Meaning:**
+---
 
-> “As of this timestamp, the upload pipeline ran successfully.”
+### Meaning of sentinels
 
-This does **not** assert freshness of the database backup itself.
+A sentinel file means:
+
+> “The upload pipeline completed successfully at this time.”
+
+It does **not** assert that a *new* backup was created in that run.
 
 ---
 
-## How to Assess System Health
+## Cron Jobs (Canonical)
 
-| Check                             | Meaning                          |
-| --------------------------------- | -------------------------------- |
-| `/backups/last/*.dump` timestamp  | When DB backup actually ran      |
-| S3 contains latest dump           | Upload succeeded                 |
-| `.last_success` is recent         | Upload pipeline healthy          |
-| `.last_success` stale             | Upload failing                   |
-| Backup file stale, sentinel fresh | DB backup not producing new data |
-| Backup file fresh, sentinel stale | Upload failing                   |
+### Receipts upload + sentinel
 
-No single indicator lies; each answers a specific question.
-
----
-
-## Restore Strategy (Summary)
-
-### Database
-
-1. Download desired `.dump` from S3
-2. Restore with `pg_restore` into target database
-3. Do **not** rely on `*-latest.dump` (local-only symlinks)
-
-### Receipts
-
-1. `rclone sync s3://…/receipts /restore/path`
-2. Files are already in final layout
+```
+15 3 * * * root \
+  cd /opt/ardua_books && \
+  /usr/bin/docker compose run --rm receipts-backup > /dev/null 2>&1 && \
+  date -u +"%Y-%m-%dT%H:%M:%SZ OK" | \
+  /snap/bin/aws s3 cp - s3://ardua-books-backups/_sentinels/receipts.last_success
+```
 
 ---
 
-## Design Rationale
+### Database upload + sentinel
 
-* **Decoupled steps** avoid fragile timing assumptions
-* **Local retention is authoritative**
-* **S3 is a mirror, not the primary store**
-* **One-shot containers** avoid loops and hidden schedulers
-* **Sentinels report liveness, not inferred success**
-
-This design intentionally favors clarity over cleverness.
+```
+10 * * * * root \
+  cd /opt/ardua_books && \
+  /usr/bin/docker compose run --rm db-backup-upload > /dev/null 2>&1 && \
+  date -u +"%Y-%m-%dT%H:%M:%SZ OK" | \
+  /snap/bin/aws s3 cp - s3://ardua-books-backups/_sentinels/postgres.last_success
+```
 
 ---
 
-## What Not to Change Without Re-Thinking
+## How to Assess Health (Correct Interpretation)
 
-* Replacing `rclone sync` with `copy`
-* Relying on Docker restart policies as schedulers
-* Assuming S3 contents alone imply backup freshness
-* Removing the `/backups` volume
+| Signal                             | Meaning                   |
+| ---------------------------------- | ------------------------- |
+| `/backups/last/*.dump` timestamp   | DB backup freshness       |
+| S3 contains latest dump            | Upload succeeded          |
+| `_sentinels/*.last_success` recent | Upload pipeline healthy   |
+| Sentinel stale                     | Upload broken             |
+| Backup fresh, sentinel stale       | Upload failure            |
+| Sentinel fresh, backup stale       | Backup not producing data |
+
+Each signal answers **one specific question**. None are overloaded.
+
+---
+
+## Restore Principles (Summary)
+
+* Always restore from **timestamped `.dump` files**
+* Do not rely on `*-latest.dump`
+* S3 mirrors local retention exactly
+* Receipts restore via `rclone sync` in reverse
+
+(See restore runbook for step-by-step instructions.)
 
 ---
 
 ## In One Sentence
 
-> Backups are created locally, retained deterministically, mirrored to S3, and monitored with explicit signals — no magic, no timing guesses, no hidden state.
+> Backups are created locally, mirrored to S3 with strict sync semantics, and monitored using sentinels stored **outside** synced paths to avoid false deletion.
 
+---
+
+## Things Not to Change Casually
+
+* Replacing `rclone sync` with `copy`
+* Writing metadata into synced prefixes
+* Coupling upload timing to backup timing
+* Removing the `/backups` volume
+* Using Docker restart policies as schedulers
+
+---
+
+**If this document still makes sense in two years, the system is healthy.**

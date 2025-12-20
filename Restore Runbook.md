@@ -1,6 +1,6 @@
 # Backup & Restore Runbook — Ardua Books
 
-This runbook describes how to restore **database** and **receipt files** from S3 backups.
+This runbook describes how to restore **database** and **receipt/media files** from S3 backups, and how to verify backup health using sentinels.
 
 ---
 
@@ -13,35 +13,51 @@ This runbook describes how to restore **database** and **receipt files** from S3
 
 ---
 
-## Part A — Restore PostgreSQL Database
+## Part A — Verify Backup Health Before Restoring
 
-### 1. Identify the backup to restore
+### 1. Check upload sentinels (pipeline health)
 
-List available backups:
+```bash
+aws s3 cp s3://ardua-books-backups/_sentinels/postgres.last_success -
+aws s3 cp s3://ardua-books-backups/_sentinels/receipts.last_success -
+```
+
+If timestamps are recent:
+
+* upload pipelines are healthy
+* S3 contents are current
+
+If stale or missing:
+
+* investigate upload jobs before restoring
+
+---
+
+### 2. Identify latest database backup
+
+List available DB backups:
 
 ```bash
 aws s3 ls s3://ardua-books-backups/postgres/last/
 ```
 
-Example output:
+Choose the appropriate **timestamped** `.dump` file.
 
-```
-2025-12-18 01:03:12  ardua_books-20251218-000312.dump
-```
-
-Choose the appropriate timestamped dump.
+> Do **not** rely on `*-latest.dump` (local symlinks are not authoritative).
 
 ---
 
-### 2. Download the backup
+## Part B — Restore PostgreSQL Database
+
+### 1. Download the backup
 
 ```bash
 aws s3 cp \
-  s3://ardua-books-backups/postgres/last/ardua_books-20251218-000312.dump \
+  s3://ardua-books-backups/postgres/last/ardua_books-YYYYMMDD-HHMMSS.dump \
   ./ardua_books.restore.dump
 ```
 
-Verify file size is non-zero:
+Verify size:
 
 ```bash
 ls -lh ardua_books.restore.dump
@@ -49,9 +65,7 @@ ls -lh ardua_books.restore.dump
 
 ---
 
-### 3. Restore into a target database
-
-Run `pg_restore` using a temporary container:
+### 2. Restore into target database
 
 ```bash
 docker run --rm -it \
@@ -73,17 +87,17 @@ Replace:
 
 ---
 
-### 4. Post-restore checks
+### 3. Post-restore validation
 
-* Verify tables exist
+* Confirm tables exist
 * Start application container
-* Confirm login and basic navigation
+* Verify login and basic navigation
 
 ---
 
-## Part B — Restore Receipts / Media Files
+## Part C — Restore Receipts / Media Files
 
-### 1. Restore receipts to a target directory
+### 1. Restore receipts from S3
 
 ```bash
 rclone sync \
@@ -92,30 +106,25 @@ rclone sync \
   --checksum --progress
 ```
 
-This recreates the full directory tree exactly.
+This recreates the directory tree exactly.
 
 ---
 
-### 2. Reattach to application (if needed)
-
-If restoring into production:
+### 2. Reattach to application (if restoring production)
 
 ```bash
 rsync -a /restore/receipts/ /opt/ardua_books/media/receipts/
 ```
 
-Restart the web container if required.
+Restart the web container if needed.
 
 ---
 
-## Notes
+## Restore Confidence Checklist
 
-* `*-latest.dump` files are local symlinks and are **not** authoritative
-* Always restore from timestamped `.dump` files
-* S3 mirrors local retention exactly
+* DB restored from timestamped dump
+* Receipts restored via `rclone sync`
+* Upload sentinels were recent
+* Application behaves normally
 
----
-
-**Restore confidence check:**
-If the database loads cleanly and receipts appear correctly, the restore is complete.
-
+If all are true, the restore is complete.

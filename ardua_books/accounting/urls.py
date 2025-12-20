@@ -14,6 +14,7 @@ from .views import (
     banktransaction_link_expense,
     banktransaction_match_transfer,
     BatchMatchExpensesView,
+    BatchMatchPaymentsView,
     JournalEntryListView,
     JournalEntryDetailView,
     PaymentCreateGeneralView,
@@ -140,6 +141,11 @@ urlpatterns = [
         "bank-accounts/<int:pk>/match-expenses/",
         BatchMatchExpensesView.as_view(),
         name="batch_match_expenses",
+    ),
+    path(
+        "bank-accounts/<int:pk>/match-payments/",
+        BatchMatchPaymentsView.as_view(),
+        name="batch_match_payments",
     ),
 ]
 

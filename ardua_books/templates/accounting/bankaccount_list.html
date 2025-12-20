@@ -28,6 +28,7 @@
             <td class="text-right">${{ acct.balance|floatformat:2 }}</td>
             <td>
                 <a href="{% url 'accounting:bankaccount_register' acct.pk %}" class="btn btn-sm btn-secondary">View Register</a>
+                <a href="{% url 'accounting:batch_match_payments' acct.pk %}" class="btn btn-sm btn-success">Match Payments</a>
                 <a href="{% url 'accounting:batch_match_expenses' acct.pk %}" class="btn btn-sm btn-info">Match Expenses</a>
             </td>
         </tr>

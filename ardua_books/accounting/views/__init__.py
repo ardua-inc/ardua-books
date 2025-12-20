@@ -55,6 +55,7 @@ from accounting.views.bank_views import (
     banktransaction_link_expense,
     banktransaction_match_transfer,
     BatchMatchExpensesView,
+    BatchMatchPaymentsView,
 )
 
 __all__ = [
@@ -83,6 +84,7 @@ __all__ = [
     "banktransaction_link_expense",
     "banktransaction_match_transfer",
     "BatchMatchExpensesView",
+    "BatchMatchPaymentsView",
     # Report views
     "ReportsHomeView",
     "TrialBalanceView",
