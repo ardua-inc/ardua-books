@@ -36,7 +36,7 @@ from billing.services import (
     mark_te_ex_unbilled_keep_invoice_lines,
 )
 from accounting.models import JournalEntry
-from accounting.views.mixins import FilterPersistenceMixin
+from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin
 
 
 class InvoiceListView(FilterPersistenceMixin, LoginRequiredMixin, TemplateView):
@@ -152,7 +152,7 @@ class InvoiceDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class InvoiceCreateView(LoginRequiredMixin, CreateView):
+class InvoiceCreateView(ReadOnlyUserMixin, LoginRequiredMixin, CreateView):
     model = Invoice
     form_class = InvoiceCreateForm
     template_name = "billing/invoice_create.html"
@@ -206,7 +206,7 @@ class InvoiceCreateView(LoginRequiredMixin, CreateView):
         return redirect("billing:invoice_detail", pk=invoice.pk)
 
 
-class InvoiceUpdateView(LoginRequiredMixin, UpdateView):
+class InvoiceUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
     model = Invoice
     form_class = InvoiceUpdateForm
     template_name = "billing/invoice_update.html"
@@ -288,7 +288,7 @@ class InvoiceUpdateView(LoginRequiredMixin, UpdateView):
         return redirect("billing:invoice_detail", pk=invoice.pk)
 
 
-class InvoiceChangeStatusView(LoginRequiredMixin, View):
+class InvoiceChangeStatusView(ReadOnlyUserMixin, LoginRequiredMixin, View):
     ALLOWED_ACTIONS = {"issue", "void", "pay", "return_to_draft"}
 
     def post(self, request, *args, **kwargs):
@@ -344,7 +344,7 @@ class InvoiceChangeStatusView(LoginRequiredMixin, View):
         return redirect("billing:invoice_detail", pk=invoice.pk)
 
 
-class InvoiceDeleteView(LoginRequiredMixin, DeleteView):
+class InvoiceDeleteView(ReadOnlyUserMixin, LoginRequiredMixin, DeleteView):
     model = Invoice
     template_name = "billing/invoice_confirm_delete.html"
     success_url = reverse_lazy("billing:invoice_list")

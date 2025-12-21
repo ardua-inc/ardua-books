@@ -2,6 +2,69 @@
 Reusable view mixins for the accounting app.
 """
 
+from django.contrib.auth.mixins import AccessMixin
+from django.core.exceptions import PermissionDenied
+
+
+class ReadOnlyUserMixin(AccessMixin):
+    """
+    Mixin that restricts users in the 'Viewer' group to read-only access.
+
+    Users in the Viewer group can access GET requests but receive a
+    PermissionDenied error on any mutating request (POST, PUT, DELETE, etc.).
+
+    Usage:
+        class MyCreateView(ReadOnlyUserMixin, LoginRequiredMixin, CreateView):
+            ...
+
+    Note: Place this mixin BEFORE LoginRequiredMixin in the inheritance chain.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            if request.user.groups.filter(name="Viewer").exists():
+                # Allow GET and HEAD requests (read-only)
+                if request.method not in ("GET", "HEAD", "OPTIONS"):
+                    raise PermissionDenied(
+                        "You have read-only access and cannot make changes."
+                    )
+        return super().dispatch(request, *args, **kwargs)
+
+
+def is_viewer(user):
+    """
+    Template helper to check if user is a read-only viewer.
+    Returns True if user is in the Viewer group.
+    """
+    if not user.is_authenticated:
+        return False
+    return user.groups.filter(name="Viewer").exists()
+
+
+def readonly_user_check(view_func):
+    """
+    Decorator for function-based views that restricts Viewer group to read-only.
+
+    Usage:
+        @login_required
+        @readonly_user_check
+        def my_view(request, pk):
+            ...
+    """
+    from functools import wraps
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if request.user.is_authenticated:
+            if request.user.groups.filter(name="Viewer").exists():
+                if request.method not in ("GET", "HEAD", "OPTIONS"):
+                    raise PermissionDenied(
+                        "You have read-only access and cannot make changes."
+                    )
+        return view_func(request, *args, **kwargs)
+
+    return wrapper
+
 
 class FilterPersistenceMixin:
     """

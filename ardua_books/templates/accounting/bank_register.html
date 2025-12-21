@@ -7,10 +7,12 @@
 <h2>Bank Register</h2>
 
 <div class="mb-3">
+    {% if not is_viewer %}
     <a href="{% url 'accounting:banktransaction_create' bank_account.id %}" class="btn btn-primary btn-sm">New Transaction</a>
     <a href="{% url 'accounting:banktransaction_import' bank_account.id %}" class="btn btn-warning btn-sm">Import CSV</a>
     <a href="{% url 'accounting:batch_match_payments' bank_account.pk %}" class="btn btn-success btn-sm">Match Payments</a>
     <a href="{% url 'accounting:batch_match_expenses' bank_account.pk %}" class="btn btn-info btn-sm">Match Expenses</a>
+    {% endif %}
     <a href="{% url 'accounting:bankaccount_list' %}" class="btn btn-secondary btn-sm">All Accounts</a>
 </div>
 
@@ -165,7 +167,7 @@
                     <a href="{% url 'accounting:bankaccount_register' txn.transfer_pair.bank_account.id %}">
                         Transfer ↔ {{ txn.transfer_pair.bank_account.institution }}
                     </a>
-                {% else %}
+                {% elif not is_viewer %}
                     <div class="dropdown">
                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
                                 type="button"
@@ -201,6 +203,8 @@
                             </li>
                         </ul>
                     </div>
+                {% else %}
+                    <span class="text-muted">—</span>
                 {% endif %}
             </td>
         </tr>

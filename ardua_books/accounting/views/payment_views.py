@@ -28,7 +28,7 @@ from accounting.models import (
 from accounting.services.payment_allocation import build_formset
 from accounting.services.banking import BankTransactionService
 from billing.models import Client, Invoice, InvoiceStatus
-from accounting.views.mixins import FilterPersistenceMixin
+from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin
 
 
 # Pagination settings
@@ -137,7 +137,7 @@ class PaymentDetailView(DetailView):
     context_object_name = "payment"
 
 
-class PaymentCreateGeneralView(View):
+class PaymentCreateGeneralView(ReadOnlyUserMixin, View):
     template_name = "accounting/payment_general_form.html"
 
     def get(self, request):
@@ -270,7 +270,7 @@ class PaymentCreateGeneralView(View):
         return redirect("accounting:payment_detail", pk=payment.id)
 
 
-class PaymentCreateFromTransactionView(View):
+class PaymentCreateFromTransactionView(ReadOnlyUserMixin, View):
     template_name = "accounting/payment_from_transaction_form.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -412,7 +412,7 @@ class PaymentCreateFromTransactionView(View):
         return redirect("accounting:bankaccount_register", pk=self.bank_account.pk)
 
 
-class PaymentCreateForInvoiceView(FormView):
+class PaymentCreateForInvoiceView(ReadOnlyUserMixin, FormView):
     template_name = "accounting/payment_for_invoice_form.html"
     form_class = PaymentForInvoiceForm
 

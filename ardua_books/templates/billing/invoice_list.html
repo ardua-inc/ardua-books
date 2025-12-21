@@ -6,9 +6,11 @@
 
 <h1>Invoices</h1>
 
+{% if not is_viewer %}
 <div class="mb-3">
     <a class="btn btn-success btn-sm" href="{% url 'billing:invoice_create' %}">Create Invoice</a>
 </div>
+{% endif %}
 
 <form method="get" class="invoice-filters card" id="filterForm">
     <div class="filter-row">

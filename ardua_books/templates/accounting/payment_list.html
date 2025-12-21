@@ -6,7 +6,9 @@
 <h1>Payments{% if filtered_client %} for {{ filtered_client.name }}{% endif %}</h1>
 
 <div class="mb-3">
+    {% if not is_viewer %}
     <a href="{% url 'accounting:payment_create_general' %}{% if filtered_client %}?client={{ filtered_client.id }}{% endif %}" class="btn btn-success btn-sm">Record Payment</a>
+    {% endif %}
     {% if filtered_client %}
     <a href="{% url 'billing:client_detail' filtered_client.id %}" class="btn btn-secondary btn-sm">&larr; Back to {{ filtered_client.name }}</a>
     {% endif %}

@@ -12,6 +12,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from billing.models import Client, Invoice, InvoiceStatus
 from billing.forms import ClientForm
 from accounting.models import Payment
+from accounting.views.mixins import ReadOnlyUserMixin
 
 
 # Default pagination settings (can be used as pattern for other views)
@@ -32,7 +33,7 @@ class ClientListView(LoginRequiredMixin, ListView):
         return qs.filter(is_active=True).order_by("name")
 
 
-class ClientCreateView(LoginRequiredMixin, CreateView):
+class ClientCreateView(ReadOnlyUserMixin, LoginRequiredMixin, CreateView):
     model = Client
     form_class = ClientForm
     template_name = "billing/client_form.html"
@@ -129,7 +130,7 @@ class ClientDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class ClientUpdateView(LoginRequiredMixin, UpdateView):
+class ClientUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
     model = Client
     form_class = ClientForm
     template_name = "billing/client_form.html"

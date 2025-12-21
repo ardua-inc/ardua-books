@@ -5,7 +5,9 @@
     <h2>Clients</h2>
 
     <p class="mb-3">
+      {% if not is_viewer %}
       <a href="{% url 'billing:client_create' %}" class="btn btn-primary">New Client</a>
+      {% endif %}
       {% if request.GET.show_inactive %}
         <a href="{% url 'billing:client_list' %}" class="btn btn-secondary">Hide inactive</a>
       {% else %}

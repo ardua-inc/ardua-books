@@ -13,7 +13,7 @@ from django.views.generic import ListView, CreateView, UpdateView, TemplateView
 
 from billing.models import Client, Consultant, TimeEntry, BillableStatus
 from billing.forms import TimeEntryForm
-from accounting.views.mixins import FilterPersistenceMixin
+from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin
 
 
 class TimeEntryListView(FilterPersistenceMixin, LoginRequiredMixin, TemplateView):
@@ -111,7 +111,7 @@ class TimeEntryListView(FilterPersistenceMixin, LoginRequiredMixin, TemplateView
         return ctx
 
 
-class TimeEntryCreateView(LoginRequiredMixin, CreateView):
+class TimeEntryCreateView(ReadOnlyUserMixin, LoginRequiredMixin, CreateView):
     model = TimeEntry
     form_class = TimeEntryForm
     template_name = "billing/timeentry_form.html"
@@ -178,7 +178,7 @@ def timeentry_client_entries(request, client_id):
     })
 
 
-class TimeEntryUpdateView(LoginRequiredMixin, UpdateView):
+class TimeEntryUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
     model = TimeEntry
     form_class = TimeEntryForm
     template_name = "billing/timeentry_form.html"

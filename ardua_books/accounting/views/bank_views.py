@@ -35,7 +35,7 @@ from accounting.models import (
 )
 from accounting.services.banking import BankAccountService, BankTransactionService
 from accounting.services.importing import normalize_amount
-from accounting.views.mixins import FilterPersistenceMixin
+from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin, readonly_user_check
 
 
 class BankAccountListView(ListView):
@@ -44,7 +44,7 @@ class BankAccountListView(ListView):
     context_object_name = "accounts"
 
 
-class BankAccountCreateView(FormView):
+class BankAccountCreateView(ReadOnlyUserMixin, FormView):
     template_name = "accounting/bankaccount_form.html"
     form_class = BankAccountForm
     success_url = reverse_lazy("accounting:bankaccount_list")
@@ -59,7 +59,7 @@ class BankAccountCreateView(FormView):
         return super().form_valid(form)
 
 
-class BankTransactionCreateView(FormView):
+class BankTransactionCreateView(ReadOnlyUserMixin, FormView):
     template_name = "accounting/banktransaction_form.html"
     form_class = BankTransactionForm
 
@@ -333,7 +333,7 @@ class BankTransactionDetailView(DetailView):
         return ctx
 
 
-class BankTransactionCSVImportView(View):
+class BankTransactionCSVImportView(ReadOnlyUserMixin, View):
     template_name = "accounting/banktransaction_import.html"
 
     def get(self, request, pk):
@@ -396,7 +396,7 @@ class BankTransactionCSVImportView(View):
         return redirect("accounting:bankaccount_register", pk=account.pk)
 
 
-class BankTransactionLinkPaymentView(View):
+class BankTransactionLinkPaymentView(ReadOnlyUserMixin, View):
     template_name = "accounting/banktxn_link_payment.html"
 
     def get(self, request, txn_id):
@@ -428,7 +428,7 @@ class BankTransactionLinkPaymentView(View):
         return redirect("accounting:bankaccount_register", pk=txn.bank_account_id)
 
 
-class BankTransactionMarkOwnerEquityView(View):
+class BankTransactionMarkOwnerEquityView(ReadOnlyUserMixin, View):
     template_name = "accounting/banktxn_mark_owner_equity.html"
 
     def get(self, request, txn_id):
@@ -448,6 +448,7 @@ class BankTransactionMarkOwnerEquityView(View):
         return redirect("accounting:bankaccount_register", pk=txn.bank_account_id)
 
 @login_required
+@readonly_user_check
 def banktransaction_link_expense(request, pk):
     from billing.models import Expense
 
@@ -531,6 +532,7 @@ def banktransaction_link_expense(request, pk):
 
 
 @login_required
+@readonly_user_check
 def banktransaction_match_transfer(request, pk):
     """Match a bank transaction to another transaction as an inter-account transfer."""
     txn = get_object_or_404(BankTransaction, pk=pk)
@@ -580,7 +582,7 @@ def banktransaction_match_transfer(request, pk):
     )
 
 
-class BatchMatchExpensesView(FilterPersistenceMixin, TemplateView):
+class BatchMatchExpensesView(ReadOnlyUserMixin, FilterPersistenceMixin, TemplateView):
     """
     Batch matching view for expense transactions.
     Shows all unmatched withdrawals and allows selecting an existing expense
@@ -801,7 +803,7 @@ class BatchMatchExpensesView(FilterPersistenceMixin, TemplateView):
         return redirect(request.get_full_path())
 
 
-class BatchMatchPaymentsView(FilterPersistenceMixin, TemplateView):
+class BatchMatchPaymentsView(ReadOnlyUserMixin, FilterPersistenceMixin, TemplateView):
     """
     Batch matching view for payment transactions.
     Shows all unmatched deposits and allows selecting an existing payment

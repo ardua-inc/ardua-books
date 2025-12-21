@@ -13,7 +13,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView, D
 
 from billing.models import Client, Expense, ExpenseCategory, BillableStatus
 from billing.forms import ExpenseForm
-from accounting.views.mixins import FilterPersistenceMixin
+from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin
 
 
 class ExpenseListView(FilterPersistenceMixin, LoginRequiredMixin, TemplateView):
@@ -115,7 +115,7 @@ class ExpenseListView(FilterPersistenceMixin, LoginRequiredMixin, TemplateView):
         return ctx
 
 
-class ExpenseCreateView(LoginRequiredMixin, CreateView):
+class ExpenseCreateView(ReadOnlyUserMixin, LoginRequiredMixin, CreateView):
     model = Expense
     form_class = ExpenseForm
     template_name = "billing/expense_form.html"
@@ -176,7 +176,7 @@ class ExpenseDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "expense"
 
 
-class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
+class ExpenseUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
     model = Expense
     form_class = ExpenseForm
     template_name = "billing/expense_form.html"
@@ -193,7 +193,7 @@ class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
+class ExpenseDeleteView(ReadOnlyUserMixin, LoginRequiredMixin, DeleteView):
     model = Expense
     template_name = "billing/expense_confirm_delete.html"
     success_url = reverse_lazy("billing:expense_list")

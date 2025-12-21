@@ -1,5 +1,16 @@
 # billing/context_processors.py
 
+
+def is_viewer(request):
+    """
+    Expose 'is_viewer' flag in templates to check if user has read-only access.
+    Users in the 'Viewer' group are read-only and should not see mutation buttons.
+    """
+    if not request.user.is_authenticated:
+        return {"is_viewer": False}
+    return {"is_viewer": request.user.groups.filter(name="Viewer").exists()}
+
+
 def mobile_flag(request):
     """
     Expose 'mobile' flag in templates if the request path is under /m/.

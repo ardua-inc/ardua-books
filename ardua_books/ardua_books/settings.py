@@ -84,6 +84,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "billing.context_processors.mobile_flag",
+                "billing.context_processors.is_viewer",
             ],
         },
     },
