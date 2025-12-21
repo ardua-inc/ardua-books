@@ -105,7 +105,7 @@
             <td class="text-right">${{ inv.total|floatformat:2 }}</td>
             <td>
                 <a href="{% url 'billing:invoice_detail' inv.pk %}" class="btn btn-sm btn-secondary">View</a>
-                {% if inv.status == InvoiceStatus.DRAFT %}
+                {% if not is_viewer and inv.status == InvoiceStatus.DRAFT %}
                 <a href="{% url 'billing:invoice_update' inv.pk %}" class="btn btn-sm btn-primary">Edit</a>
                 {% endif %}
             </td>

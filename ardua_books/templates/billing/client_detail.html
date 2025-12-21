@@ -6,11 +6,13 @@
 
 <h1>Client: {{ client.name }}</h1>
 
+{% if not is_viewer %}
 <div class="mb-3">
     <a href="{% url 'billing:client_edit' client.id %}" class="btn btn-primary btn-sm">Edit Client</a>
     <a href="{% url 'billing:invoice_create' %}?client={{ client.id }}" class="btn btn-secondary btn-sm">Create Invoice</a>
     <a href="{% url 'accounting:payment_create_general' %}?client={{ client.id }}" class="btn btn-success btn-sm">Record Payment</a>
 </div>
+{% endif %}
 
 <div class="client-layout">
     <div class="client-info-column">

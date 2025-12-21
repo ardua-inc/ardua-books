@@ -7,9 +7,11 @@
 
 <h1>Time Entries</h1>
 
+{% if not is_viewer %}
 <div class="mb-3">
     <a href="{% url 'billing:timeentry_create' %}" class="btn btn-primary btn-sm">New Time Entry</a>
 </div>
+{% endif %}
 
 <form method="get" class="list-filters card" id="filterForm">
     <div class="filter-row">
@@ -115,7 +117,7 @@
             <td>{{ entry.description|truncatewords:10 }}</td>
             <td class="text-right">${{ entry.billing_rate|floatformat:2 }}</td>
             <td>
-                {% if entry.status != "BILLED" %}
+                {% if not is_viewer and entry.status != "BILLED" %}
                 <a href="{% url 'billing:timeentry_edit' entry.pk %}" class="btn btn-secondary btn-sm">Edit</a>
                 {% endif %}
             </td>

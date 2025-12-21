@@ -6,9 +6,11 @@
 
 <h1>Expenses</h1>
 
+{% if not is_viewer %}
 <div class="mb-3">
     <a href="{% url 'billing:expense_create' %}" class="btn btn-primary btn-sm">New Expense</a>
 </div>
+{% endif %}
 
 <form method="get" class="list-filters card" id="filterForm">
     <div class="filter-row">
@@ -129,7 +131,7 @@
             </td>
             <td>{{ e.description|truncatewords:10 }}</td>
             <td>
-                {% if e.status != "BILLED" %}
+                {% if not is_viewer and e.status != "BILLED" %}
                 <a href="{% url 'billing:expense_edit' e.pk %}" class="btn btn-secondary btn-sm">Edit</a>
                 {% endif %}
             </td>

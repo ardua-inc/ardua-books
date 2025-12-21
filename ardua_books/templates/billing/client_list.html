@@ -41,7 +41,9 @@
             <td>{{ client.payment_terms_days }}</td>
             <td>{{ client.is_active|yesno:"Yes,No" }}</td>
             <td>
+              {% if not is_viewer %}
               <a href="{% url 'billing:client_edit' client.pk %}" class="btn btn-secondary">Edit</a>
+              {% endif %}
             </td>
           </tr>
         {% empty %}

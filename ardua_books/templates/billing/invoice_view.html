@@ -76,6 +76,7 @@
     </table>
 </div>
 
+{% if not is_viewer %}
 <div class="invoice-section card">
     <h3>Actions</h3>
     {% if invoice.status == InvoiceStatus.DRAFT %}
@@ -94,6 +95,7 @@
         <p class="no-actions-message">This invoice cannot be changed.</p>
     {% endif %}
 </div>
+{% endif %}
 
 <div class="invoice-section card">
     <h3>Payments Applied</h3>
@@ -134,7 +136,7 @@
         <strong>Outstanding Balance:</strong> ${{ invoice.outstanding_balance|floatformat:2 }}
     </div>
 
-    {% if invoice.status == InvoiceStatus.ISSUED and invoice.outstanding_balance > 0 %}
+    {% if not is_viewer and invoice.status == InvoiceStatus.ISSUED and invoice.outstanding_balance > 0 %}
     <div class="payment-action">
         <a class="btn btn-primary" href="{% url 'billing:payment_apply_invoice' invoice.id %}">Apply Payment</a>
     </div>
