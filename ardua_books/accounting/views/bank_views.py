@@ -361,7 +361,8 @@ class BankTransactionCSVImportView(ReadOnlyUserMixin, View):
         decoded = csv_file.read().decode("utf-8").splitlines()
         reader = csv.reader(decoded)
 
-        count = 0
+        imported_count = 0
+        skipped_count = 0
 
         for row in reader:
             if not row:
@@ -382,6 +383,18 @@ class BankTransactionCSVImportView(ReadOnlyUserMixin, View):
             amt = Decimal(raw_amount)
             amt = normalize_amount(amt, profile)
 
+            # Check for existing transaction to avoid duplicates
+            existing = BankTransaction.objects.filter(
+                bank_account=account,
+                date=dt,
+                description=raw_desc,
+                amount=amt,
+            ).exists()
+
+            if existing:
+                skipped_count += 1
+                continue
+
             BankTransactionService.post_transaction(
                 bank_account=account,
                 date=dt,
@@ -390,9 +403,15 @@ class BankTransactionCSVImportView(ReadOnlyUserMixin, View):
                 offset_account=offset_account,
             )
 
-            count += 1
+            imported_count += 1
 
-        messages.success(request, f"Imported {count} transactions.")
+        if skipped_count > 0:
+            messages.success(
+                request,
+                f"Imported {imported_count} new transaction(s) ({skipped_count} duplicate(s) skipped).",
+            )
+        else:
+            messages.success(request, f"Imported {imported_count} transaction(s).")
         return redirect("accounting:bankaccount_register", pk=account.pk)
 
 
