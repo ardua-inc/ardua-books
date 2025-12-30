@@ -90,6 +90,6 @@ def invoice_print_pdf(request, pk):
 
     response = HttpResponse(output.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = (
-        f'inline; filename="invoice-{invoice.invoice_number}.pdf"'
+        f'inline; filename="Ardua Inc - Invoice {invoice.invoice_number}.pdf"'
     )
     return response
