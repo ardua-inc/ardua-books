@@ -30,6 +30,7 @@ from .views import (
     invoice_unbilled_fragment,
     invoice_print_view,
     invoice_print_pdf,
+    invoice_email_view,
 
     # mobile PWA
     mobile_home,
@@ -90,6 +91,7 @@ urlpatterns = [
     path("invoices/<int:pk>/delete/", InvoiceDeleteView.as_view(), name="invoice_delete"),
     path("invoices/<int:pk>/print/", invoice_print_view, name="invoice_print"),
     path("invoices/<int:pk>/print-pdf/", invoice_print_pdf, name="invoice_print_pdf"),
+    path("invoices/<int:pk>/email/", invoice_email_view, name="invoice_email"),
     path("invoices/<int:invoice_id>/apply-payment/", PaymentCreateForInvoiceView.as_view(), name="payment_apply_invoice"),
 
     # mobile PWA

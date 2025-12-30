@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2 class="mb-3">Email Invoice {{ invoice.invoice_number }}</h2>
+
+    <p class="text-muted mb-3">
+        Send this invoice as a PDF attachment to the recipient below.
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="form-group mb-3">
+            {{ form.to_email.label_tag }}
+            {{ form.to_email }}
+            {% if form.to_email.errors %}
+                <div class="error">{{ form.to_email.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group mb-3">
+            {{ form.subject.label_tag }}
+            {{ form.subject }}
+            {% if form.subject.errors %}
+                <div class="error">{{ form.subject.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group mb-3">
+            {{ form.message.label_tag }}
+            {{ form.message }}
+            {% if form.message.help_text %}
+                <small class="text-muted">{{ form.message.help_text }}</small>
+            {% endif %}
+            {% if form.message.errors %}
+                <div class="error">{{ form.message.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions mt-3">
+            <button type="submit" class="btn btn-primary">Send Email</button>
+            <a href="{% url 'billing:invoice_detail' invoice.pk %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.mb-3 {
+    margin-bottom: 1rem;
+}
+.mt-3 {
+    margin-top: 1rem;
+}
+.text-muted {
+    color: #6b7280;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+}
+.form-group small {
+    display: block;
+    margin-top: 0.25rem;
+}
+.error {
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+.form-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+</style>
+
+{% endblock %}

@@ -25,11 +25,11 @@ def invoice_print_view(request, pk):
     })
 
 
-@login_required
-def invoice_print_pdf(request, pk):
-    """Generate PDF invoice with attached receipts."""
-    invoice = get_object_or_404(Invoice, pk=pk)
-
+def _generate_invoice_pdf(invoice, request):
+    """
+    Generate PDF bytes for an invoice with attached receipts.
+    Returns the PDF as bytes.
+    """
     # Render invoice HTML without embedded receipts
     html = render_to_string(
         "billing/invoice_print.html",
@@ -88,7 +88,17 @@ def invoice_print_pdf(request, pk):
     writer.write(output)
     output.seek(0)
 
-    response = HttpResponse(output.getvalue(), content_type="application/pdf")
+    return output.getvalue()
+
+
+@login_required
+def invoice_print_pdf(request, pk):
+    """Generate PDF invoice with attached receipts."""
+    invoice = get_object_or_404(Invoice, pk=pk)
+
+    pdf_bytes = _generate_invoice_pdf(invoice, request)
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = (
         f'inline; filename="Ardua Inc - Invoice {invoice.invoice_number}.pdf"'
     )

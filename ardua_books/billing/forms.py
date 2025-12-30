@@ -211,3 +211,21 @@ CreateInvoiceLineFormSet = inlineformset_factory(
     extra=1,
     can_delete=False,     # <<< FIX
 )
+
+
+class InvoiceEmailForm(forms.Form):
+    """Form for emailing an invoice to a client."""
+    to_email = forms.EmailField(
+        label="To",
+        widget=forms.EmailInput(attrs={"class": "form-control"}),
+    )
+    subject = forms.CharField(
+        max_length=200,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    message = forms.CharField(
+        required=False,
+        label="Message (optional)",
+        widget=forms.Textarea(attrs={"rows": 5, "class": "form-control"}),
+        help_text="Add a personal message to include in the email body.",
+    )

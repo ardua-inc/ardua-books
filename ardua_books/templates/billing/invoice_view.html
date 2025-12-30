@@ -10,6 +10,9 @@
         <div class="btn-group">
             <a href="{% url 'billing:invoice_print' invoice.pk %}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Print Preview">Print</a>
             <a href="{% url 'billing:invoice_print_pdf' invoice.pk %}" class="btn btn-outline-secondary btn-sm" title="Download PDF">PDF</a>
+            {% if invoice.status == InvoiceStatus.ISSUED or invoice.status == InvoiceStatus.PAID %}
+            <a href="{% url 'billing:invoice_email' invoice.pk %}" class="btn btn-outline-secondary btn-sm" title="Email Invoice">Email</a>
+            {% endif %}
         </div>
         <a href="{% url 'billing:invoice_list' %}" class="btn btn-secondary btn-sm">Back to Invoices</a>
     </div>

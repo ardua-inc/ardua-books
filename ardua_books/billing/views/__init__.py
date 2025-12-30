@@ -34,6 +34,7 @@ from billing.views.invoice_views import (
     InvoiceUpdateView,
     InvoiceChangeStatusView,
     InvoiceDeleteView,
+    invoice_email_view,
 )
 
 from billing.views.pdf_views import (
@@ -80,6 +81,7 @@ __all__ = [
     "InvoiceUpdateView",
     "InvoiceChangeStatusView",
     "InvoiceDeleteView",
+    "invoice_email_view",
     # PDF views
     "invoice_print_view",
     "invoice_print_pdf",

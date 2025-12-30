@@ -4,8 +4,10 @@ Invoice management views.
 from datetime import date, timedelta
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.contenttypes.models import ContentType
+from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.http import HttpResponseForbidden
@@ -28,6 +30,7 @@ from billing.forms import (
     InvoiceUpdateForm,
     CreateInvoiceLineFormSet,
     UpdateInvoiceLineFormSet,
+    InvoiceEmailForm,
 )
 from billing.services import (
     attach_unbilled_items_to_invoice,
@@ -372,3 +375,61 @@ class InvoiceDeleteView(ReadOnlyUserMixin, LoginRequiredMixin, DeleteView):
                 e.save(update_fields=["invoice_line", "status"])
 
         return super().delete(request, *args, **kwargs)
+
+
+@login_required
+def invoice_email_view(request, pk):
+    """Email an invoice PDF to the client."""
+    invoice = get_object_or_404(Invoice, pk=pk)
+
+    # Only allow emailing Issued or Paid invoices
+    if invoice.status not in (InvoiceStatus.ISSUED, InvoiceStatus.PAID):
+        messages.error(request, "Only issued or paid invoices can be emailed.")
+        return redirect("billing:invoice_detail", pk=invoice.pk)
+
+    if request.method == "POST":
+        form = InvoiceEmailForm(request.POST)
+        if form.is_valid():
+            to_email = form.cleaned_data["to_email"]
+            subject = form.cleaned_data["subject"]
+            custom_message = form.cleaned_data["message"]
+
+            # Build email body
+            body = f"Please find attached Invoice {invoice.invoice_number}."
+            if custom_message:
+                body += f"\n\n{custom_message}"
+
+            # Generate PDF (reuse logic from pdf_views)
+            from billing.views.pdf_views import _generate_invoice_pdf
+            pdf_bytes = _generate_invoice_pdf(invoice, request)
+            filename = f"Ardua Inc - Invoice {invoice.invoice_number}.pdf"
+
+            # Send email
+            email = EmailMessage(
+                subject=subject,
+                body=body,
+                to=[to_email],
+            )
+            email.attach(filename, pdf_bytes, "application/pdf")
+
+            try:
+                email.send()
+                messages.success(
+                    request,
+                    f"Invoice emailed successfully to {to_email}."
+                )
+            except Exception as e:
+                messages.error(request, f"Failed to send email: {e}")
+
+            return redirect("billing:invoice_detail", pk=invoice.pk)
+    else:
+        # Pre-fill form with defaults
+        form = InvoiceEmailForm(initial={
+            "to_email": invoice.client.email,
+            "subject": f"Invoice {invoice.invoice_number} from Ardua, Inc",
+        })
+
+    return render(request, "billing/invoice_email_form.html", {
+        "form": form,
+        "invoice": invoice,
+    })
