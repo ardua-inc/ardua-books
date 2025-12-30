@@ -14,6 +14,34 @@ class TimeStampedModel(models.Model):
         abstract = True
 
 
+class Company(models.Model):
+    """
+    Singleton model for company information.
+    Only one record should exist; managed via Django admin.
+    """
+    name = models.CharField(max_length=255)
+    address = models.TextField(blank=True, help_text="Full mailing address")
+    phone = models.CharField(max_length=50, blank=True)
+    email = models.EmailField(blank=True)
+
+    class Meta:
+        verbose_name_plural = "Company"
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        # Ensure only one Company record exists
+        if not self.pk and Company.objects.exists():
+            raise ValidationError("Only one Company record is allowed.")
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_instance(cls):
+        """Get the company instance, or return None if not configured."""
+        return cls.objects.first()
+
+
 class Client(TimeStampedModel):
     name = models.CharField(max_length=255, unique=True)
     billing_address = models.TextField(blank=True)

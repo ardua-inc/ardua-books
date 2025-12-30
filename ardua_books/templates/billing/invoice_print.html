@@ -74,9 +74,12 @@
 
   <div class="header">
     <div>
-      <div class="company-name">Ardua, Inc</div>
-      <div>2795 E Comanche Drive</div>
-      <div>Salt Lake City, UT 84108</div>
+      {% if company %}
+      <div class="company-name">{{ company.name }}</div>
+      <div style="white-space: pre-line;">{{ company.address }}</div>
+      {% else %}
+      <div class="company-name">[Company not configured]</div>
+      {% endif %}
     </div>
     <div class="invoice-title">Invoice</div>
   </div>

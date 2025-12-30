@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import (
+    Company,
     Client,
     Consultant,
     ExpenseCategory,
@@ -8,6 +9,19 @@ from .models import (
     Invoice,
     InvoiceLine,
 )
+
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ("name", "email", "phone")
+
+    def has_add_permission(self, request):
+        # Only allow adding if no Company exists yet
+        return not Company.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        # Prevent deletion of the company record
+        return False
 
 
 @admin.register(Client)

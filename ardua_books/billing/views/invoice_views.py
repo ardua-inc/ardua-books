@@ -401,9 +401,9 @@ def invoice_email_view(request, pk):
             body += "\n\n"  # Add spacing before attachment
 
             # Generate PDF (reuse logic from pdf_views)
-            from billing.views.pdf_views import _generate_invoice_pdf
+            from billing.views.pdf_views import _generate_invoice_pdf, get_invoice_pdf_filename
             pdf_bytes = _generate_invoice_pdf(invoice, request)
-            filename = f"Ardua Inc - Invoice {invoice.invoice_number}.pdf"
+            filename = get_invoice_pdf_filename(invoice)
 
             # Send email
             email = EmailMessage(
@@ -425,9 +425,12 @@ def invoice_email_view(request, pk):
             return redirect("billing:invoice_detail", pk=invoice.pk)
     else:
         # Pre-fill form with defaults
+        from billing.models import Company
+        company = Company.get_instance()
+        company_name = company.name if company else "Our Company"
         form = InvoiceEmailForm(initial={
             "to_email": invoice.client.email,
-            "subject": f"Invoice {invoice.invoice_number} from Ardua, Inc",
+            "subject": f"Invoice {invoice.invoice_number} from {company_name}",
         })
 
     return render(request, "billing/invoice_email_form.html", {
