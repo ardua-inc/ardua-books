@@ -398,6 +398,7 @@ def invoice_email_view(request, pk):
             body = f"Please find attached Invoice {invoice.invoice_number}."
             if custom_message:
                 body += f"\n\n{custom_message}"
+            body += "\n\n"  # Add spacing before attachment
 
             # Generate PDF (reuse logic from pdf_views)
             from billing.views.pdf_views import _generate_invoice_pdf
