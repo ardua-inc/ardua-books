@@ -57,7 +57,7 @@ jobs:
             ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@books.ardua.lan '
               cd /opt/ardua_books
               docker compose pull web
-              docker compose up -d --remove-orphans
+              docker compose up -d --force-recreate --remove-orphans
               docker image prune -f
               docker compose exec -T web python manage.py migrate
               docker compose exec -T web python manage.py collectstatic --noinput
