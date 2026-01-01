@@ -46,7 +46,7 @@ jobs:
         - name: Deploy on books
           run: |
             ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@books.ardua.lan '
-              cd /opt/ardua-books
+              cd /opt/ardua_books
               docker compose pull web
               docker compose up -d --remove-orphans
               docker image prune -f
