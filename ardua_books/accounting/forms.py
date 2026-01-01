@@ -347,6 +347,25 @@ class ExpenseMatchRowForm(forms.Form):
         )
         self.fields["category"].empty_label = "-- Create New --"
 
+    def clean_expense(self):
+        """
+        Validate expense ID without requiring it to be in the choices list.
+        During POST, choices aren't populated, so we validate the ID directly.
+        """
+        from billing.models import Expense
+
+        expense_id = self.cleaned_data.get("expense")
+        if not expense_id:
+            return ""
+
+        # Verify the expense exists
+        try:
+            Expense.objects.get(pk=expense_id)
+        except (Expense.DoesNotExist, ValueError):
+            raise forms.ValidationError("Invalid expense selected.")
+
+        return expense_id
+
     def clean(self):
         cleaned_data = super().clean()
         expense = cleaned_data.get("expense")
