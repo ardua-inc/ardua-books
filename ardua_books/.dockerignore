@@ -1,0 +1,55 @@
+# Docker/deployment files (not needed inside container)
+Dockerfile
+docker-compose.yml
+docker-compose*.yml
+.dockerignore
+bounce.sh
+deploy/
+
+# Test files
+conftest.py
+pytest.ini
+**/tests/
+**/*_test.py
+**/*_tests.py
+
+# Backup/sync tools
+rclone/
+
+# Git
+.git/
+.gitignore
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environment/secrets (should never be in image)
+.env
+.env.*
+*.env
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Development database
+db.sqlite3
+
+# Generated at runtime or via volumes
+media/
+staticfiles/
+receipts/
+
+# macOS
+.DS_Store
+
+# Documentation/scripts not needed at runtime
+*.md
+scripts/
