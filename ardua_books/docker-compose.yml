@@ -1,6 +1,6 @@
 services:
   web:
-    image: ghcr.io/jimatardua/ardua-books:latest
+    image: ghcr.io/ardua-inc/ardua-books:latest
     env_file:
       - .env
     depends_on:

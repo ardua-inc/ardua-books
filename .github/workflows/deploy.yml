@@ -37,12 +37,20 @@ jobs:
       runs-on: [self-hosted]
 
       steps:
+        - uses: actions/checkout@v4
+
         - name: Setup SSH key
           run: |
             mkdir -p ~/.ssh
             echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
             chmod 600 ~/.ssh/deploy_key
             ssh-keyscan -H books.ardua.lan >> ~/.ssh/known_hosts
+
+        - name: Sync docker-compose.yml to server
+          run: |
+            scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+              ardua_books/docker-compose.yml \
+              ${{ secrets.DEPLOY_USER }}@books.ardua.lan:/opt/ardua_books/docker-compose.yml
 
         - name: Deploy on books
           run: |
