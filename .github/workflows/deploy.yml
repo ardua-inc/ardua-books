@@ -32,21 +32,24 @@ jobs:
             ghcr.io/ardua-inc/ardua-books:${{ github.sha }}
 
   deploy:
-    needs: build
-    runs-on: [self-hosted]
+      needs: build
+      runs-on: [self-hosted]
 
-    steps:
-      - name: Deploy on books
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: books.ardua.lan
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
+      steps:
+        - name: Setup SSH key
+          run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            ssh-keyscan -H books.ardua.lan >> ~/.ssh/known_hosts
+
+        - name: Deploy on books
+          run: |
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@books.ardua.lan '
               cd /opt/ardua-books
               docker compose pull web
               docker compose up -d --remove-orphans
-              docker image prune -f 
+              docker image prune -f
               docker compose exec -T web python manage.py migrate
               docker compose exec -T web python manage.py collectstatic --noinput
-
+            '
