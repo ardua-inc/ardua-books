@@ -28,8 +28,8 @@ jobs:
           build-args: |
             GIT_COMMIT=${{ github.sha }}
           tags: |
-            ghcr.io/jimatardua/ardua-books:latest
-            ghcr.io/jimatardua/ardua-books:${{ github.sha }}
+            ghcr.io/ardua-inc/ardua-books:latest
+            ghcr.io/ardua-inc/ardua-books:${{ github.sha }}
 
   deploy:
     needs: build
@@ -37,10 +37,16 @@ jobs:
 
     steps:
       - name: Deploy on books
-        run: |
-          cd /opt/ardua_books
-          docker compose pull web
-          docker compose up -d 
-          docker compose exec -T web python manage.py migrate
-          docker compose exec -T web python manage.py collectstatic --noinput
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: books.ardua.lan
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+              cd /opt/ardua-books
+              docker compose pull web
+              docker compose up -d --remove-orphans
+              docker image prune -f 
+              docker compose exec -T web python manage.py migrate
+              docker compose exec -T web python manage.py collectstatic --noinput
 
