@@ -25,6 +25,7 @@ jobs:
           context: ./ardua_books
           file: ./ardua_books/Dockerfile
           push: true
+          no-cache: true
           build-args: |
             GIT_COMMIT=${{ github.sha }}
           tags: |
