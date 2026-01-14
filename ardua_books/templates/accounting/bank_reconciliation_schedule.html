@@ -1,0 +1,490 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+<div class="report-header">
+    <div class="report-title-section">
+        <h1>Bank Reconciliation Schedule</h1>
+        {% if from_date or to_date %}
+        <p class="report-date-range">
+            {% if from_date and to_date %}
+            {{ from_date|date:"M d, Y" }} - {{ to_date|date:"M d, Y" }}
+            {% elif from_date %}
+            From {{ from_date|date:"M d, Y" }}
+            {% elif to_date %}
+            Through {{ to_date|date:"M d, Y" }}
+            {% endif %}
+        </p>
+        {% else %}
+        <p class="report-date-range">All Time</p>
+        {% endif %}
+    </div>
+    <div class="report-actions">
+        <div class="btn-group">
+            <a href="{% url 'accounting:bank_reconciliation_print' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Print Preview">Print</a>
+            <a href="{% url 'accounting:bank_reconciliation_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" title="Download PDF">PDF</a>
+            <a href="{% url 'accounting:bank_reconciliation_csv' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" title="Export to CSV">CSV</a>
+        </div>
+        <a href="{% url 'accounting:home' %}" class="btn btn-secondary btn-sm">Back to Reports</a>
+    </div>
+</div>
+
+<form method="get" class="report-filters card" id="filterForm">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label for="date_preset">Date Range</label>
+            <select name="date_preset" id="date_preset" class="auto-submit">
+                <option value="mtd" {% if date_preset == "mtd" %}selected{% endif %}>Month to date</option>
+                <option value="last_month" {% if date_preset == "last_month" %}selected{% endif %}>Last month</option>
+                <option value="ytd" {% if date_preset == "ytd" %}selected{% endif %}>Year to date</option>
+                <option value="last_year" {% if date_preset == "last_year" %}selected{% endif %}>Last year</option>
+                <option value="custom" {% if date_from or date_to %}selected{% endif %}>Custom range</option>
+            </select>
+        </div>
+
+        <div class="date-range-group date-range-fields" id="customDateGroup">
+            <div class="filter-group">
+                <label for="date_from">From</label>
+                <input type="date" name="date_from" id="date_from" value="{{ date_from }}">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">To</label>
+                <input type="date" name="date_to" id="date_to" value="{{ date_to }}">
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            </div>
+            <div class="filter-group filter-actions">
+                <label>&nbsp;</label>
+                <a href="{% url 'accounting:bank_reconciliation_schedule' %}?date_preset=last_year" class="btn btn-secondary btn-sm">Clear</a>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% for account_data in accounts_data %}
+<div class="bank-account-card card">
+    <div class="account-header">
+        <div class="account-info">
+            <h2>{{ account_data.bank_account.institution }} ({{ account_data.bank_account.account_number_masked }})</h2>
+            <div class="account-meta">
+                <span class="account-type-badge type-{{ account_data.bank_account.type|lower }}">{{ account_data.bank_account.get_type_display }}</span>
+                <span class="gl-account">GL Account: {{ account_data.gl_account.code }} - {{ account_data.gl_account.name }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="account-summary">
+        <table class="summary-table">
+            <tbody>
+                <tr>
+                    <td class="label">Opening Balance ({{ from_date|date:"M d, Y" }})</td>
+                    <td class="amount {% if account_data.opening_balance < 0 %}negative{% endif %}">{{ account_data.opening_balance|currency }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Total Deposits</td>
+                    <td class="amount positive">{{ account_data.deposits|currency }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Total Withdrawals</td>
+                    <td class="amount {% if account_data.withdrawals < 0 %}negative{% endif %}">{{ account_data.withdrawals|currency }}</td>
+                </tr>
+                <tr class="ending-balance-row">
+                    <td class="label">Ending Balance ({{ to_date|date:"M d, Y" }})</td>
+                    <td class="amount {% if account_data.ending_balance < 0 %}negative{% endif %}">{{ account_data.ending_balance|currency }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    {% if account_data.unmatched_count > 0 %}
+    <div class="unmatched-section">
+        <h3>Unmatched Transactions ({{ account_data.unmatched_count }})</h3>
+        <table class="unmatched-table">
+            <thead>
+                <tr>
+                    <th class="text-left">Date</th>
+                    <th class="text-left">Description</th>
+                    <th class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for txn in account_data.unmatched_transactions %}
+                <tr>
+                    <td>{{ txn.date|date:"M d, Y" }}</td>
+                    <td>{{ txn.description }}</td>
+                    <td class="amount {% if txn.amount < 0 %}negative{% endif %}">{{ txn.amount|currency }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+            {% if account_data.has_more_unmatched %}
+            <tfoot>
+                <tr>
+                    <td colspan="2" class="text-muted">... and {{ account_data.unmatched_count|add:"-10" }} more</td>
+                    <td class="amount">{{ account_data.unmatched_total|currency }}</td>
+                </tr>
+            </tfoot>
+            {% else %}
+            <tfoot>
+                <tr>
+                    <td colspan="2" class="text-right"><strong>Total Unmatched:</strong></td>
+                    <td class="amount">{{ account_data.unmatched_total|currency }}</td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+        <a href="{% url 'accounting:bankaccount_register' account_data.bank_account.pk %}?filter=unmatched" class="btn btn-outline-primary btn-sm">View in Register</a>
+    </div>
+    {% else %}
+    <div class="all-matched">
+        <span class="matched-badge">All transactions matched</span>
+    </div>
+    {% endif %}
+</div>
+{% empty %}
+<div class="card empty-state">
+    <p class="text-muted text-center">No bank accounts found.</p>
+</div>
+{% endfor %}
+
+<div class="summary-card card">
+    <h2>Summary</h2>
+    <table class="totals-table">
+        <tbody>
+            <tr>
+                <td class="label">Total Bank Assets (Checking/Savings/Cash)</td>
+                <td class="amount {% if total_bank_assets < 0 %}negative{% endif %}">{{ total_bank_assets|currency }}</td>
+            </tr>
+            <tr>
+                <td class="label">Total Credit Card Balances</td>
+                <td class="amount {% if total_credit_cards < 0 %}negative{% endif %}">{{ total_credit_cards|currency }}</td>
+            </tr>
+            <tr class="net-position-row">
+                <td class="label">Net Cash Position</td>
+                <td class="amount {% if net_cash_position < 0 %}negative{% endif %}">{{ net_cash_position|currency }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<style>
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.report-title-section h1 {
+    margin: 0 0 0.25rem 0;
+}
+
+.report-date-range {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.report-filters {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.date-range-group {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0;
+}
+
+.filter-group select,
+.filter-group input[type="date"] {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    width: 160px;
+    height: 34px;
+    box-sizing: border-box;
+}
+
+.filter-actions .btn {
+    height: 34px;
+}
+
+.date-range-fields {
+    display: none;
+}
+
+.date-range-fields.show {
+    display: flex;
+}
+
+.bank-account-card {
+    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+}
+
+.account-header {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.account-header h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+}
+
+.account-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.account-type-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.type-checking { background: #dbeafe; color: #1e40af; }
+.type-savings { background: #d1fae5; color: #065f46; }
+.type-credit_card { background: #fef3c7; color: #92400e; }
+.type-cash { background: #f3e8ff; color: #7c3aed; }
+
+.gl-account {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-family: monospace;
+}
+
+.account-summary {
+    margin-bottom: 1rem;
+}
+
+.summary-table {
+    width: 100%;
+    max-width: 400px;
+}
+
+.summary-table td {
+    padding: 0.5rem 0;
+}
+
+.summary-table .label {
+    color: #6b7280;
+}
+
+.summary-table .amount {
+    text-align: right;
+    font-family: monospace;
+    font-size: 1rem;
+}
+
+.ending-balance-row {
+    border-top: 2px solid #e5e7eb;
+    font-weight: 600;
+}
+
+.ending-balance-row .label,
+.ending-balance-row .amount {
+    padding-top: 0.75rem;
+    color: #111827;
+}
+
+.amount.positive { color: #059669; }
+.amount.negative { color: #dc2626; }
+
+.unmatched-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.unmatched-section h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.95rem;
+    color: #b45309;
+}
+
+.unmatched-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.75rem;
+}
+
+.unmatched-table th,
+.unmatched-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.unmatched-table thead th {
+    background: #fef3c7;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #92400e;
+}
+
+.unmatched-table tfoot td {
+    background: #fef3c7;
+    font-weight: 500;
+}
+
+.all-matched {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.matched-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: #d1fae5;
+    color: #065f46;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.summary-card {
+    padding: 1.5rem;
+    background: #f9fafb;
+}
+
+.summary-card h2 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+}
+
+.totals-table {
+    width: 100%;
+    max-width: 400px;
+}
+
+.totals-table td {
+    padding: 0.5rem 0;
+}
+
+.totals-table .label {
+    color: #6b7280;
+}
+
+.totals-table .amount {
+    text-align: right;
+    font-family: monospace;
+    font-size: 1rem;
+}
+
+.net-position-row {
+    border-top: 2px solid #d1d5db;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.net-position-row .label,
+.net-position-row .amount {
+    padding-top: 0.75rem;
+    color: #111827;
+}
+
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-muted { color: #6b7280; }
+
+.empty-state {
+    padding: 3rem;
+}
+
+@media (max-width: 768px) {
+    .report-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-group select,
+    .filter-group input[type="date"] {
+        width: 100%;
+    }
+
+    .date-range-group {
+        flex-wrap: wrap;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filterForm');
+    const presetSelect = document.getElementById('date_preset');
+    const dateRangeGroup = document.getElementById('customDateGroup');
+    const autoSubmitElements = document.querySelectorAll('.auto-submit');
+
+    function toggleCustomFields() {
+        const isCustom = presetSelect.value === 'custom' ||
+                         document.getElementById('date_from').value ||
+                         document.getElementById('date_to').value;
+        dateRangeGroup.classList.toggle('show', isCustom);
+    }
+
+    autoSubmitElements.forEach(function(el) {
+        el.addEventListener('change', function() {
+            if (presetSelect.value === 'custom') {
+                toggleCustomFields();
+            } else {
+                if (this.id === 'date_preset') {
+                    document.getElementById('date_from').value = '';
+                    document.getElementById('date_to').value = '';
+                }
+                form.submit();
+            }
+        });
+    });
+
+    presetSelect.addEventListener('change', function() {
+        if (this.value !== 'custom') {
+            document.getElementById('date_from').value = '';
+            document.getElementById('date_to').value = '';
+        }
+        toggleCustomFields();
+    });
+
+    toggleCustomFields();
+});
+</script>
+
+{% endblock %}

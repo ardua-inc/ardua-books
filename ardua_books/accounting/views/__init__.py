@@ -11,6 +11,7 @@ from accounting.views.reports_views import (
     ARAgingView,
     ClientBalanceSummaryView,
     AccountDrilldownView,
+    BankReconciliationScheduleView,
 )
 
 from accounting.views.report_exports import (
@@ -26,6 +27,9 @@ from accounting.views.report_exports import (
     journal_entries_print,
     journal_entries_pdf,
     journal_entries_csv,
+    bank_reconciliation_print,
+    bank_reconciliation_pdf,
+    bank_reconciliation_csv,
 )
 from accounting.views.journal_views import (
     JournalEntryListView,
@@ -93,6 +97,7 @@ __all__ = [
     "ARAgingView",
     "ClientBalanceSummaryView",
     "AccountDrilldownView",
+    "BankReconciliationScheduleView",
     # Report exports
     "trial_balance_print",
     "trial_balance_pdf",
@@ -106,4 +111,7 @@ __all__ = [
     "journal_entries_print",
     "journal_entries_pdf",
     "journal_entries_csv",
+    "bank_reconciliation_print",
+    "bank_reconciliation_pdf",
+    "bank_reconciliation_csv",
 ]

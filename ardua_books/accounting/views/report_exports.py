@@ -16,7 +16,7 @@ from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from accounting.models import ChartOfAccount, JournalLine, JournalEntry, AccountType, Payment, PaymentApplication
+from accounting.models import ChartOfAccount, JournalLine, JournalEntry, AccountType, Payment, PaymentApplication, BankAccount, BankTransaction
 from billing.models import Client, Invoice
 
 
@@ -197,6 +197,69 @@ def get_journal_entries_data(from_date, to_date):
         entries = entries.filter(posted_at__date__lte=to_date)
 
     return entries.order_by("-posted_at", "-id")
+
+
+def get_bank_reconciliation_data(from_date, to_date):
+    """Get bank reconciliation schedule data."""
+    from django.db.models import Sum
+
+    accounts_data = []
+    total_bank_assets = Decimal("0")
+    total_credit_cards = Decimal("0")
+
+    for bank_account in BankAccount.objects.select_related("account").order_by("type", "institution"):
+        all_transactions = BankTransaction.objects.filter(bank_account=bank_account)
+
+        # Opening balance calculation
+        opening_balance = bank_account.opening_balance or Decimal("0")
+        if from_date:
+            prior_txn_sum = all_transactions.filter(
+                date__lt=from_date
+            ).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+            opening_balance += prior_txn_sum
+
+        # Period transactions
+        period_transactions = all_transactions
+        if from_date:
+            period_transactions = period_transactions.filter(date__gte=from_date)
+        if to_date:
+            period_transactions = period_transactions.filter(date__lte=to_date)
+
+        deposits = period_transactions.filter(amount__gt=0).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+        withdrawals = period_transactions.filter(amount__lt=0).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+        ending_balance = opening_balance + deposits + withdrawals
+
+        # Unmatched transactions
+        unmatched_transactions = period_transactions.filter(
+            payment__isnull=True,
+            expense__isnull=True,
+            transfer_pair__isnull=True,
+        ).order_by("date")
+        unmatched_count = unmatched_transactions.count()
+        unmatched_total = unmatched_transactions.aggregate(s=Sum("amount"))["s"] or Decimal("0")
+
+        accounts_data.append({
+            "bank_account": bank_account,
+            "gl_account": bank_account.account,
+            "opening_balance": opening_balance,
+            "deposits": deposits,
+            "withdrawals": withdrawals,
+            "ending_balance": ending_balance,
+            "unmatched_count": unmatched_count,
+            "unmatched_total": unmatched_total,
+        })
+
+        if bank_account.type in ["CHECKING", "SAVINGS", "CASH"]:
+            total_bank_assets += ending_balance
+        elif bank_account.type == "CREDIT_CARD":
+            total_credit_cards += ending_balance
+
+    return {
+        "accounts_data": accounts_data,
+        "total_bank_assets": total_bank_assets,
+        "total_credit_cards": total_credit_cards,
+        "net_cash_position": total_bank_assets + total_credit_cards,
+    }
 
 
 # ==============================================================================
@@ -495,5 +558,120 @@ def journal_entries_csv(request):
                     float(line.debit) if line.debit else "",
                     float(line.credit) if line.credit else "",
                 ])
+
+    return response
+
+
+# ==============================================================================
+# BANK RECONCILIATION SCHEDULE EXPORTS
+# ==============================================================================
+
+def get_bank_recon_date_range(request):
+    """Parse date range for bank reconciliation (defaults to last year)."""
+    today = date.today()
+    date_preset = request.GET.get("date_preset", "last_year")
+    date_from_str = request.GET.get("date_from", "")
+    date_to_str = request.GET.get("date_to", "")
+
+    if date_preset == "mtd":
+        from_date = today.replace(day=1)
+        to_date = today
+    elif date_preset == "ytd":
+        from_date = today.replace(month=1, day=1)
+        to_date = today
+    elif date_preset == "last_month":
+        first_of_month = today.replace(day=1)
+        last_month_end = first_of_month - timedelta(days=1)
+        from_date = last_month_end.replace(day=1)
+        to_date = last_month_end
+    elif date_preset == "last_year":
+        from_date = date(today.year - 1, 1, 1)
+        to_date = date(today.year - 1, 12, 31)
+    elif date_from_str or date_to_str:
+        from_date = date.fromisoformat(date_from_str) if date_from_str else None
+        to_date = date.fromisoformat(date_to_str) if date_to_str else None
+    else:
+        from_date = date(today.year - 1, 1, 1)
+        to_date = date(today.year - 1, 12, 31)
+
+    return from_date, to_date
+
+
+@login_required
+def bank_reconciliation_print(request):
+    """Print-ready HTML view of bank reconciliation schedule."""
+    from_date, to_date = get_bank_recon_date_range(request)
+    data = get_bank_reconciliation_data(from_date, to_date)
+
+    return render(request, "accounting/exports/bank_reconciliation_print.html", {
+        "report_title": "Bank Reconciliation Schedule",
+        "date_range": format_date_range(from_date, to_date),
+        "back_url": reverse("accounting:bank_reconciliation_schedule") + "?" + request.GET.urlencode(),
+        "from_date": from_date,
+        "to_date": to_date,
+        **data,
+    })
+
+
+@login_required
+def bank_reconciliation_pdf(request):
+    """Generate PDF of bank reconciliation schedule."""
+    from_date, to_date = get_bank_recon_date_range(request)
+    data = get_bank_reconciliation_data(from_date, to_date)
+
+    html = render_to_string("accounting/exports/bank_reconciliation_print.html", {
+        "report_title": "Bank Reconciliation Schedule",
+        "date_range": format_date_range(from_date, to_date),
+        "back_url": "",
+        "from_date": from_date,
+        "to_date": to_date,
+        **data,
+    }, request=request)
+
+    pdf = weasyprint.HTML(
+        string=html,
+        base_url=request.build_absolute_uri("/"),
+    ).write_pdf()
+
+    response = HttpResponse(pdf, content_type="application/pdf")
+    filename = f"bank-reconciliation-{date.today().isoformat()}.pdf"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def bank_reconciliation_csv(request):
+    """Export bank reconciliation schedule as CSV."""
+    from_date, to_date = get_bank_recon_date_range(request)
+    data = get_bank_reconciliation_data(from_date, to_date)
+
+    response = HttpResponse(content_type="text/csv")
+    filename = f"bank-reconciliation-{date.today().isoformat()}.csv"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    writer = csv.writer(response)
+    writer.writerow(["Bank Reconciliation Schedule", format_date_range(from_date, to_date)])
+    writer.writerow([])
+
+    for acct_data in data["accounts_data"]:
+        bank_acct = acct_data["bank_account"]
+        gl_acct = acct_data["gl_account"]
+
+        writer.writerow([f"{bank_acct.institution} ({bank_acct.account_number_masked})"])
+        writer.writerow(["Account Type", bank_acct.get_type_display()])
+        writer.writerow(["GL Account", f"{gl_acct.code} - {gl_acct.name}"])
+        writer.writerow([])
+        writer.writerow(["Opening Balance", float(acct_data["opening_balance"])])
+        writer.writerow(["Total Deposits", float(acct_data["deposits"])])
+        writer.writerow(["Total Withdrawals", float(acct_data["withdrawals"])])
+        writer.writerow(["Ending Balance", float(acct_data["ending_balance"])])
+        writer.writerow(["Unmatched Transactions", acct_data["unmatched_count"]])
+        writer.writerow(["Unmatched Total", float(acct_data["unmatched_total"])])
+        writer.writerow([])
+
+    writer.writerow(["SUMMARY"])
+    writer.writerow(["Total Bank Assets", float(data["total_bank_assets"])])
+    writer.writerow(["Total Credit Card Balances", float(data["total_credit_cards"])])
+    writer.writerow(["Net Cash Position", float(data["net_cash_position"])])
 
     return response

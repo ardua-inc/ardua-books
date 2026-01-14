@@ -29,6 +29,7 @@ from .views import (
     ARAgingView,
     ClientBalanceSummaryView,
     AccountDrilldownView,
+    BankReconciliationScheduleView,
     # Report exports
     trial_balance_print,
     trial_balance_pdf,
@@ -42,6 +43,9 @@ from .views import (
     journal_entries_print,
     journal_entries_pdf,
     journal_entries_csv,
+    bank_reconciliation_print,
+    bank_reconciliation_pdf,
+    bank_reconciliation_csv,
 )
 
 app_name = "accounting"
@@ -71,6 +75,10 @@ urlpatterns = [
     path("reports/client-balances/print/", client_balance_print, name="client_balance_print"),
     path("reports/client-balances/pdf/", client_balance_pdf, name="client_balance_pdf"),
     path("reports/client-balances/csv/", client_balance_csv, name="client_balance_csv"),
+    path("reports/bank-reconciliation/", BankReconciliationScheduleView.as_view(), name="bank_reconciliation_schedule"),
+    path("reports/bank-reconciliation/print/", bank_reconciliation_print, name="bank_reconciliation_print"),
+    path("reports/bank-reconciliation/pdf/", bank_reconciliation_pdf, name="bank_reconciliation_pdf"),
+    path("reports/bank-reconciliation/csv/", bank_reconciliation_csv, name="bank_reconciliation_csv"),
     # BANK ACCOUNTS
     path("bank-accounts/", BankAccountListView.as_view(), name="bankaccount_list"),
     path("bank-accounts/new/", BankAccountCreateView.as_view(), name="bankaccount_create"),

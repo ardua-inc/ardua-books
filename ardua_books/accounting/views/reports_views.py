@@ -1,8 +1,9 @@
 from datetime import date, timedelta
+from decimal import Decimal
 from django.db.models import Sum, Case, When, F, DecimalField, Q
 from django.views.generic import TemplateView
 
-from accounting.models import ChartOfAccount, JournalLine, AccountType, Payment, PaymentApplication
+from accounting.models import ChartOfAccount, JournalLine, AccountType, Payment, PaymentApplication, BankAccount, BankTransaction
 from billing.models import Client, Invoice
 
 class ReportsHomeView(TemplateView):
@@ -401,6 +402,124 @@ class AccountDrilldownView(TemplateView):
             "to_date": to_date,
             "date_from": date_from,
             "date_to": date_to,
+        })
+
+        return context
+
+
+class BankReconciliationScheduleView(TemplateView):
+    """
+    Bank Reconciliation Schedule Report showing all bank accounts with
+    opening balances, activity, ending balances, and unmatched transactions.
+    """
+    template_name = "accounting/bank_reconciliation_schedule.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = date.today()
+
+        # Get date filter parameters - default to last year
+        date_preset = self.request.GET.get("date_preset", "last_year")
+        date_from = self.request.GET.get("date_from", "")
+        date_to = self.request.GET.get("date_to", "")
+
+        # Determine date range
+        if date_preset == "mtd":
+            from_date = today.replace(day=1)
+            to_date = today
+        elif date_preset == "ytd":
+            from_date = today.replace(month=1, day=1)
+            to_date = today
+        elif date_preset == "last_month":
+            first_of_month = today.replace(day=1)
+            last_month_end = first_of_month - timedelta(days=1)
+            from_date = last_month_end.replace(day=1)
+            to_date = last_month_end
+        elif date_preset == "last_year":
+            from_date = date(today.year - 1, 1, 1)
+            to_date = date(today.year - 1, 12, 31)
+        elif date_from or date_to:
+            from_date = date.fromisoformat(date_from) if date_from else None
+            to_date = date.fromisoformat(date_to) if date_to else None
+            date_preset = ""
+        else:
+            # Default to last year
+            from_date = date(today.year - 1, 1, 1)
+            to_date = date(today.year - 1, 12, 31)
+
+        # Build report data for each bank account
+        accounts_data = []
+        total_bank_assets = Decimal("0")
+        total_credit_cards = Decimal("0")
+
+        for bank_account in BankAccount.objects.select_related("account").order_by("type", "institution"):
+            # Get all transactions for this account
+            all_transactions = BankTransaction.objects.filter(bank_account=bank_account)
+
+            # Opening balance is the account's opening_balance plus all transactions BEFORE the from_date
+            opening_balance = bank_account.opening_balance or Decimal("0")
+            if from_date:
+                prior_txn_sum = all_transactions.filter(
+                    date__lt=from_date
+                ).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+                opening_balance += prior_txn_sum
+
+            # Get transactions within the date range
+            period_transactions = all_transactions
+            if from_date:
+                period_transactions = period_transactions.filter(date__gte=from_date)
+            if to_date:
+                period_transactions = period_transactions.filter(date__lte=to_date)
+
+            # Calculate deposits and withdrawals within period
+            deposits = period_transactions.filter(amount__gt=0).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+            withdrawals = period_transactions.filter(amount__lt=0).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+
+            # Ending balance
+            ending_balance = opening_balance + deposits + withdrawals
+
+            # Get unmatched transactions within the period
+            unmatched_transactions = period_transactions.filter(
+                payment__isnull=True,
+                expense__isnull=True,
+                transfer_pair__isnull=True,
+            ).order_by("date")
+
+            unmatched_count = unmatched_transactions.count()
+            unmatched_total = unmatched_transactions.aggregate(s=Sum("amount"))["s"] or Decimal("0")
+
+            account_data = {
+                "bank_account": bank_account,
+                "gl_account": bank_account.account,
+                "opening_balance": opening_balance,
+                "deposits": deposits,
+                "withdrawals": withdrawals,
+                "ending_balance": ending_balance,
+                "unmatched_transactions": list(unmatched_transactions[:10]),  # Limit for display
+                "unmatched_count": unmatched_count,
+                "unmatched_total": unmatched_total,
+                "has_more_unmatched": unmatched_count > 10,
+            }
+            accounts_data.append(account_data)
+
+            # Accumulate totals by account type
+            if bank_account.type in ["CHECKING", "SAVINGS", "CASH"]:
+                total_bank_assets += ending_balance
+            elif bank_account.type == "CREDIT_CARD":
+                total_credit_cards += ending_balance  # Credit cards typically negative
+
+        net_cash_position = total_bank_assets + total_credit_cards
+
+        context.update({
+            "accounts_data": accounts_data,
+            "total_bank_assets": total_bank_assets,
+            "total_credit_cards": total_credit_cards,
+            "net_cash_position": net_cash_position,
+            "date_preset": date_preset,
+            "date_from": date_from if not date_preset else "",
+            "date_to": date_to if not date_preset else "",
+            "from_date": from_date,
+            "to_date": to_date,
         })
 
         return context

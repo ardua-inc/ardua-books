@@ -1,0 +1,206 @@
+{% extends "accounting/report_print_base.html" %}
+{% load formatting %}
+
+{% block report_content %}
+{% for account_data in accounts_data %}
+<div class="bank-account-section">
+    <div class="account-header-row">
+        <div class="account-name">{{ account_data.bank_account.institution }} ({{ account_data.bank_account.account_number_masked }})</div>
+        <div class="account-details">
+            <span class="badge badge-{{ account_data.bank_account.type|lower }}">{{ account_data.bank_account.get_type_display }}</span>
+            <span class="gl-ref">GL: {{ account_data.gl_account.code }} - {{ account_data.gl_account.name }}</span>
+        </div>
+    </div>
+
+    <table class="balance-table">
+        <tbody>
+            <tr>
+                <td class="label">Opening Balance ({{ from_date|date:"M d, Y" }})</td>
+                <td class="amount {% if account_data.opening_balance < 0 %}negative{% endif %}">{{ account_data.opening_balance|currency }}</td>
+            </tr>
+            <tr>
+                <td class="label">Total Deposits</td>
+                <td class="amount">{{ account_data.deposits|currency }}</td>
+            </tr>
+            <tr>
+                <td class="label">Total Withdrawals</td>
+                <td class="amount {% if account_data.withdrawals < 0 %}negative{% endif %}">{{ account_data.withdrawals|currency }}</td>
+            </tr>
+            <tr class="ending-row">
+                <td class="label">Ending Balance ({{ to_date|date:"M d, Y" }})</td>
+                <td class="amount {% if account_data.ending_balance < 0 %}negative{% endif %}">{{ account_data.ending_balance|currency }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    {% if account_data.unmatched_count > 0 %}
+    <div class="unmatched-notice">
+        <strong>Unmatched Transactions:</strong> {{ account_data.unmatched_count }} transaction{{ account_data.unmatched_count|pluralize }} totaling {{ account_data.unmatched_total|currency }}
+    </div>
+    {% else %}
+    <div class="matched-notice">
+        All transactions matched
+    </div>
+    {% endif %}
+</div>
+{% empty %}
+<p class="text-center">No bank accounts found.</p>
+{% endfor %}
+
+<div class="summary-section">
+    <h2>Summary</h2>
+    <table class="summary-totals">
+        <tbody>
+            <tr>
+                <td class="label">Total Bank Assets (Checking/Savings/Cash)</td>
+                <td class="amount {% if total_bank_assets < 0 %}negative{% endif %}">{{ total_bank_assets|currency }}</td>
+            </tr>
+            <tr>
+                <td class="label">Total Credit Card Balances</td>
+                <td class="amount {% if total_credit_cards < 0 %}negative{% endif %}">{{ total_credit_cards|currency }}</td>
+            </tr>
+            <tr class="net-row">
+                <td class="label">Net Cash Position</td>
+                <td class="amount {% if net_cash_position < 0 %}negative{% endif %}">{{ net_cash_position|currency }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<style>
+.bank-account-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    page-break-inside: avoid;
+}
+
+.account-header-row {
+    margin-bottom: 0.75rem;
+}
+
+.account-name {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 0.25rem;
+}
+
+.account-details {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 8pt;
+    font-weight: 500;
+}
+
+.badge-checking { background: #dbeafe; color: #1e40af; }
+.badge-savings { background: #d1fae5; color: #065f46; }
+.badge-credit_card { background: #fef3c7; color: #92400e; }
+.badge-cash { background: #f3e8ff; color: #7c3aed; }
+
+.gl-ref {
+    font-size: 9pt;
+    color: #6b7280;
+    font-family: "SF Mono", Monaco, "Courier New", monospace;
+}
+
+.balance-table {
+    width: auto;
+    min-width: 350px;
+    margin-bottom: 0.5rem;
+}
+
+.balance-table td {
+    padding: 0.3rem 0.5rem;
+    border: none;
+}
+
+.balance-table .label {
+    color: #6b7280;
+    font-size: 9pt;
+}
+
+.balance-table .amount {
+    text-align: right;
+    font-family: "SF Mono", Monaco, "Courier New", monospace;
+    font-size: 10pt;
+}
+
+.balance-table .ending-row {
+    border-top: 1px solid #d1d5db;
+}
+
+.balance-table .ending-row td {
+    padding-top: 0.5rem;
+    font-weight: 600;
+}
+
+.unmatched-notice {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    font-size: 9pt;
+    display: inline-block;
+}
+
+.matched-notice {
+    background: #d1fae5;
+    color: #065f46;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    font-size: 9pt;
+    display: inline-block;
+}
+
+.summary-section {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 2px solid #111827;
+    page-break-inside: avoid;
+}
+
+.summary-section h2 {
+    font-size: 12pt;
+    margin: 0 0 0.75rem 0;
+}
+
+.summary-totals {
+    width: auto;
+    min-width: 350px;
+}
+
+.summary-totals td {
+    padding: 0.3rem 0.5rem;
+    border: none;
+}
+
+.summary-totals .label {
+    color: #6b7280;
+    font-size: 9pt;
+}
+
+.summary-totals .amount {
+    text-align: right;
+    font-family: "SF Mono", Monaco, "Courier New", monospace;
+    font-size: 10pt;
+}
+
+.summary-totals .net-row {
+    border-top: 2px solid #d1d5db;
+}
+
+.summary-totals .net-row td {
+    padding-top: 0.5rem;
+    font-weight: 700;
+    font-size: 11pt;
+}
+</style>
+{% endblock %}
