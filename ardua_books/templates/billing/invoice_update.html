@@ -54,6 +54,17 @@
     </tr>
     {% endfor %}
 
+    {% for line in attached_recurring %}
+    <tr>
+      <td>Recurring</td>
+      <td>{{ line.description }}</td>
+      <td>{{ line.line_total }}</td>
+      <td class="text-center">
+        <input type="checkbox" name="detach_ids" value="{{ line.id }}">
+      </td>
+    </tr>
+    {% endfor %}
+
   </tbody>
 </table>
 {% else %}
@@ -63,6 +74,9 @@
   {% endfor %}
   {% for line in attached_expenses %}
     <li>Expense: {{ line.description }} ({{ line.line_total }})</li>
+  {% endfor %}
+  {% for line in attached_recurring %}
+    <li>Recurring: {{ line.description }} ({{ line.line_total }})</li>
   {% endfor %}
 </ul>
 {% endif %}

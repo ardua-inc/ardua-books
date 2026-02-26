@@ -8,6 +8,8 @@ from .models import (
     TimeEntry,
     Expense,
     BillableStatus,
+    RecurringCharge,
+    RecurringChargeOccurrence,
 )
 
 from django.core.exceptions import ValidationError
@@ -85,6 +87,45 @@ def attach_unbilled_items_to_invoice(invoice, time_ids, expense_ids):
         line.save()
 
 
+def attach_recurring_charges_to_invoice(invoice, charge_ids):
+    """
+    Creates InvoiceLines and RecurringChargeOccurrences for the selected
+    recurring charges and updates each charge's last_billed_date.
+    """
+    today = datetime.date.today()
+
+    for charge in RecurringCharge.objects.filter(id__in=charge_ids):
+        line = InvoiceLine.objects.create(
+            invoice=invoice,
+            line_type=InvoiceLine.LineType.RECURRING,
+            description=charge.description,
+            quantity=1,
+            unit_price=charge.amount,
+        )
+
+        RecurringChargeOccurrence.objects.create(
+            recurring_charge=charge,
+            invoice_line=line,
+            amount_billed=charge.amount,
+            occurrence_date=today,
+        )
+
+        charge.last_billed_date = today
+        charge.save(update_fields=["last_billed_date"])
+
+        line.save()
+
+
+def _recompute_charge_last_billed_date(charge):
+    """
+    After an occurrence is removed, reset last_billed_date from remaining
+    occurrences so the charge correctly shows as due again.
+    """
+    latest = charge.occurrences.order_by("-occurrence_date").first()
+    charge.last_billed_date = latest.occurrence_date if latest else None
+    charge.save(update_fields=["last_billed_date"])
+
+
 def detach_invoice_lines(invoice, lines_to_detach):
     """
     Used by invoice_update.
@@ -107,6 +148,13 @@ def detach_invoice_lines(invoice, lines_to_detach):
             ex.status = BillableStatus.UNBILLED
             ex.save()
 
+        # RECURRING CHARGE?
+        occurrence = getattr(line, "recurring_charge_occurrence", None)
+        if occurrence:
+            charge = occurrence.recurring_charge
+            occurrence.delete()
+            _recompute_charge_last_billed_date(charge)
+
         # Now safe to delete the line
         line.delete()
 
@@ -115,6 +163,7 @@ def mark_all_te_ex_unbilled_and_unlink(invoice):
     Used when VOIDING an invoice (DRAFT or ISSUED).
     - TimeEntry / Expense → UNBILLED
     - invoice_line FK → NULL
+    - RecurringChargeOccurrence → deleted, last_billed_date recomputed
     - InvoiceLine rows are PRESERVED (historical)
     """
     for line in invoice.lines.all():
@@ -132,6 +181,13 @@ def mark_all_te_ex_unbilled_and_unlink(invoice):
                 ex.status = BillableStatus.UNBILLED
                 ex.invoice_line = None
                 ex.save()
+
+        elif line.line_type == InvoiceLine.LineType.RECURRING:
+            occurrence = getattr(line, "recurring_charge_occurrence", None)
+            if occurrence:
+                charge = occurrence.recurring_charge
+                occurrence.delete()
+                _recompute_charge_last_billed_date(charge)
 
 def mark_te_ex_unbilled_keep_invoice_lines(invoice):
     """

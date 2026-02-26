@@ -55,6 +55,13 @@ from billing.views.fragment_views import (
     invoice_unbilled_fragment,
 )
 
+from billing.views.recurring_charge_views import (
+    RecurringChargeListView,
+    RecurringChargeCreateView,
+    RecurringChargeUpdateView,
+    RecurringChargeDeleteView,
+)
+
 __all__ = [
     # Client views
     "ClientListView",
@@ -94,4 +101,9 @@ __all__ = [
     "mobile_meta",
     # Fragment views
     "invoice_unbilled_fragment",
+    # Recurring charge views
+    "RecurringChargeListView",
+    "RecurringChargeCreateView",
+    "RecurringChargeUpdateView",
+    "RecurringChargeDeleteView",
 ]

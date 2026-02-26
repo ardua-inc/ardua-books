@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+<h1>Recurring Charges</h1>
+
+{% if not is_viewer %}
+<div class="mb-3">
+  <a href="{% url 'billing:recurring_charge_create' %}" class="btn btn-primary btn-sm">New Recurring Charge</a>
+</div>
+{% endif %}
+
+<form method="get" class="list-filters card" id="filterForm">
+  <div class="filter-row">
+    <div class="filter-group">
+      <label for="client">Client</label>
+      <select name="client" id="client" class="auto-submit">
+        <option value="">All clients</option>
+        {% for c in clients %}
+        <option value="{{ c.id }}" {% if client_filter == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="active">Status</label>
+      <select name="active" id="active" class="auto-submit">
+        <option value="">All</option>
+        <option value="1" {% if active_filter == "1" %}selected{% endif %}>Active</option>
+        <option value="0" {% if active_filter == "0" %}selected{% endif %}>Inactive</option>
+      </select>
+    </div>
+  </div>
+</form>
+
+<table class="table table-striped table-sm">
+  <thead>
+    <tr>
+      <th>Client</th>
+      <th>Description</th>
+      <th>Amount</th>
+      <th>Frequency</th>
+      <th>Start Date</th>
+      <th>End Date</th>
+      <th>Last Billed</th>
+      <th>Due?</th>
+      <th>Active</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for rc in recurring_charges %}
+    <tr>
+      <td>{{ rc.client.name }}</td>
+      <td>{{ rc.description }}</td>
+      <td class="text-end">${{ rc.amount|floatformat:2 }}</td>
+      <td>{{ rc.get_frequency_display }}</td>
+      <td>{{ rc.start_date }}</td>
+      <td>{{ rc.end_date|default:"—" }}</td>
+      <td>{{ rc.last_billed_date|default:"Never" }}</td>
+      <td>
+        {% if rc.is_due %}
+          <span class="badge bg-warning text-dark">Due</span>
+        {% else %}
+          <span class="badge bg-secondary">Billed</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if rc.is_active %}
+          <span class="badge bg-success">Active</span>
+        {% else %}
+          <span class="badge bg-secondary">Inactive</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if not is_viewer %}
+        <a href="{% url 'billing:recurring_charge_edit' rc.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        {% if not rc.occurrences.exists %}
+        <a href="{% url 'billing:recurring_charge_delete' rc.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+        {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="10" class="text-muted text-center">No recurring charges found.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

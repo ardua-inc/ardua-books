@@ -6,8 +6,8 @@
   </p>
 {% endif %}
 
-{% if not unbilled_time and not unbilled_expenses %}
-  <p class="text-muted">No unbilled time entries or expenses.</p>
+{% if not unbilled_time and not unbilled_expenses and not recurring_charges %}
+  <p class="text-muted">No unbilled time entries, expenses, or recurring charges.</p>
 {% endif %}
 
 <!-- Select all toggle -->
@@ -22,7 +22,7 @@
   <thead>
     <tr>
       <th></th>
-      <th>Date</th>
+      <th>Date / Period</th>
       <th>Type</th>
       <th>Qty</th>
       <th>Rate / Amount</th>
@@ -64,23 +64,63 @@
       </tr>
     {% endfor %}
 
+    <!-- RECURRING CHARGES -->
+    {% for rc in recurring_charges %}
+      <tr {% if rc.is_due %}class="table-warning"{% endif %}>
+        <td>
+          <input type="checkbox" class="unbilled-item"
+                 name="recurring_charge_ids" value="{{ rc.id }}"
+                 {% if rc.is_due %}checked{% endif %}>
+        </td>
+        <td>
+          {{ rc.get_frequency_display }}
+          {% if rc.last_billed_date %}
+            <br><small class="text-muted">Last: {{ rc.last_billed_date }}</small>
+          {% else %}
+            <br><small class="text-muted">Never billed</small>
+          {% endif %}
+        </td>
+        <td>
+          Recurring
+          {% if rc.is_due %}
+            <span class="badge bg-warning text-dark">Due</span>
+          {% endif %}
+        </td>
+        <td>1</td>
+        <td>${{ rc.amount|floatformat:2 }}</td>
+        <td>${{ rc.amount|floatformat:2 }}</td>
+        <td>{{ rc.description }}</td>
+      </tr>
+    {% endfor %}
+
   </tbody>
 
   <!-- Subtotals -->
   <tfoot>
+    {% if unbilled_time %}
     <tr>
       <th colspan="5" class="text-end">Total Time:</th>
-      <th>{{ total_time_value|floatformat:2 }}</th>
+      <th>${{ total_time_value|floatformat:2 }}</th>
       <th></th>
     </tr>
+    {% endif %}
+    {% if unbilled_expenses %}
     <tr>
       <th colspan="5" class="text-end">Total Expenses:</th>
-      <th>{{ total_expense_value|floatformat:2 }}</th>
+      <th>${{ total_expense_value|floatformat:2 }}</th>
       <th></th>
     </tr>
+    {% endif %}
+    {% if recurring_charges %}
+    <tr>
+      <th colspan="5" class="text-end">Total Recurring:</th>
+      <th>${{ total_recurring_value|floatformat:2 }}</th>
+      <th></th>
+    </tr>
+    {% endif %}
     <tr>
       <th colspan="5" class="text-end">Subtotal:</th>
-      <th>{{ subtotal|floatformat:2 }}</th>
+      <th>${{ subtotal|floatformat:2 }}</th>
       <th></th>
     </tr>
   </tfoot>

@@ -32,6 +32,12 @@ from .views import (
     invoice_print_pdf,
     invoice_email_view,
 
+    # recurring charges
+    RecurringChargeListView,
+    RecurringChargeCreateView,
+    RecurringChargeUpdateView,
+    RecurringChargeDeleteView,
+
     # mobile PWA
     mobile_home,
     mobile_time_entry_create,
@@ -93,6 +99,12 @@ urlpatterns = [
     path("invoices/<int:pk>/print-pdf/", invoice_print_pdf, name="invoice_print_pdf"),
     path("invoices/<int:pk>/email/", invoice_email_view, name="invoice_email"),
     path("invoices/<int:invoice_id>/apply-payment/", PaymentCreateForInvoiceView.as_view(), name="payment_apply_invoice"),
+
+    # recurring charges
+    path("recurring/", RecurringChargeListView.as_view(), name="recurring_charge_list"),
+    path("recurring/new/", RecurringChargeCreateView.as_view(), name="recurring_charge_create"),
+    path("recurring/<int:pk>/edit/", RecurringChargeUpdateView.as_view(), name="recurring_charge_edit"),
+    path("recurring/<int:pk>/delete/", RecurringChargeDeleteView.as_view(), name="recurring_charge_delete"),
 
     # mobile PWA
     path("m/", mobile_home, name="mobile_home"),

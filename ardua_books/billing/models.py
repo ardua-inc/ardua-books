@@ -318,12 +318,73 @@ class Invoice(TimeStampedModel):
         self.save(update_fields=["subtotal", "tax_amount", "total"])
 
 
+class FrequencyChoices(models.TextChoices):
+    MONTHLY = "MONTHLY", "Monthly"
+    QUARTERLY = "QUARTERLY", "Quarterly"
+    ANNUALLY = "ANNUALLY", "Annually"
+
+
+class RecurringCharge(TimeStampedModel):
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.PROTECT,
+        related_name="recurring_charges",
+    )
+    description = models.TextField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    frequency = models.CharField(
+        max_length=20,
+        choices=FrequencyChoices.choices,
+        default=FrequencyChoices.MONTHLY,
+    )
+    start_date = models.DateField()
+    end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Leave blank for an indefinite recurring charge.",
+    )
+    is_active = models.BooleanField(default=True)
+    last_billed_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Automatically updated when this charge is added to an invoice.",
+    )
+
+    class Meta:
+        ordering = ["client__name", "description"]
+
+    def __str__(self):
+        return f"{self.client.name} \u2014 {self.description} ({self.get_frequency_display()})"
+
+    @property
+    def is_due(self):
+        """True if this charge has never been billed, or the billing period has rolled over."""
+        from datetime import date as _date
+        today = _date.today()
+        if not self.last_billed_date:
+            return True
+        if self.frequency == FrequencyChoices.MONTHLY:
+            return (today.year, today.month) > (
+                self.last_billed_date.year, self.last_billed_date.month
+            )
+        elif self.frequency == FrequencyChoices.QUARTERLY:
+            months_since = (
+                (today.year - self.last_billed_date.year) * 12
+                + (today.month - self.last_billed_date.month)
+            )
+            return months_since >= 3
+        elif self.frequency == FrequencyChoices.ANNUALLY:
+            return today.year > self.last_billed_date.year
+        return True
+
+
 class InvoiceLine(TimeStampedModel):
     class LineType(models.TextChoices):
         TIME = "TIME", "Time entry"
         EXPENSE = "EXPENSE", "Expense"
         ADJUSTMENT = "ADJUSTMENT", "Adjustment"
         GENERAL = "GENERAL", "General line"
+        RECURRING = "RECURRING", "Recurring charge"
 
     invoice = models.ForeignKey(
         Invoice,
@@ -360,3 +421,28 @@ class InvoiceLine(TimeStampedModel):
         # Always compute line_total
         self.line_total = (self.quantity or 0) * (self.unit_price or 0)
         super().save(*args, **kwargs)
+
+
+class RecurringChargeOccurrence(TimeStampedModel):
+    """
+    Records each time a RecurringCharge is added to an invoice.
+    Preserves the amount billed at that point in time.
+    """
+    recurring_charge = models.ForeignKey(
+        RecurringCharge,
+        on_delete=models.PROTECT,
+        related_name="occurrences",
+    )
+    invoice_line = models.OneToOneField(
+        InvoiceLine,
+        on_delete=models.CASCADE,
+        related_name="recurring_charge_occurrence",
+    )
+    amount_billed = models.DecimalField(max_digits=10, decimal_places=2)
+    occurrence_date = models.DateField()
+
+    class Meta:
+        ordering = ["-occurrence_date"]
+
+    def __str__(self):
+        return f"{self.recurring_charge} \u2014 {self.occurrence_date}"

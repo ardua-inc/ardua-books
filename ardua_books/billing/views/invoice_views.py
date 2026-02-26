@@ -16,6 +16,8 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, DeleteView, TemplateView
 
+import datetime
+
 from billing.models import (
     Client,
     TimeEntry,
@@ -24,6 +26,7 @@ from billing.models import (
     InvoiceLine,
     BillableStatus,
     InvoiceStatus,
+    RecurringCharge,
 )
 from billing.forms import (
     InvoiceCreateForm,
@@ -34,6 +37,7 @@ from billing.forms import (
 )
 from billing.services import (
     attach_unbilled_items_to_invoice,
+    attach_recurring_charges_to_invoice,
     detach_invoice_lines,
     mark_all_te_ex_unbilled_and_unlink,
     mark_te_ex_unbilled_keep_invoice_lines,
@@ -205,6 +209,9 @@ class InvoiceCreateView(ReadOnlyUserMixin, LoginRequiredMixin, CreateView):
         expense_ids = [int(x) for x in self.request.POST.getlist("expense_ids")]
         attach_unbilled_items_to_invoice(invoice, time_ids, expense_ids)
 
+        recurring_charge_ids = [int(x) for x in self.request.POST.getlist("recurring_charge_ids")]
+        attach_recurring_charges_to_invoice(invoice, recurring_charge_ids)
+
         invoice.recalculate_totals()
         return redirect("billing:invoice_detail", pk=invoice.pk)
 
@@ -232,8 +239,10 @@ class InvoiceUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
                 prefix="lines",
             )
 
+        from django.db.models import Q
         ctx["attached_time"] = invoice.lines.filter(line_type=InvoiceLine.LineType.TIME)
         ctx["attached_expenses"] = invoice.lines.filter(line_type=InvoiceLine.LineType.EXPENSE)
+        ctx["attached_recurring"] = invoice.lines.filter(line_type=InvoiceLine.LineType.RECURRING)
 
         ctx["unbilled_time"] = TimeEntry.objects.filter(
             client=client,
@@ -246,13 +255,30 @@ class InvoiceUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
             status=BillableStatus.UNBILLED,
             invoice_line__isnull=True,
         )
+
+        today = datetime.date.today()
+        ctx["recurring_charges"] = RecurringCharge.objects.filter(
+            client=client,
+            is_active=True,
+            start_date__lte=today,
+        ).filter(
+            Q(end_date__isnull=True) | Q(end_date__gte=today)
+        ).order_by("description")
+
         ctx["total_time_value"] = sum(
             te.hours * te.billing_rate for te in ctx["unbilled_time"]
         )
         ctx["total_expense_value"] = sum(
             ex.amount for ex in ctx["unbilled_expenses"]
         )
-        ctx["subtotal"] = ctx["total_time_value"] + ctx["total_expense_value"]
+        ctx["total_recurring_value"] = sum(
+            rc.amount for rc in ctx["recurring_charges"]
+        )
+        ctx["subtotal"] = (
+            ctx["total_time_value"]
+            + ctx["total_expense_value"]
+            + ctx["total_recurring_value"]
+        )
 
         return ctx
 
@@ -280,6 +306,9 @@ class InvoiceUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
         time_ids = [int(x) for x in self.request.POST.getlist("time_ids")]
         expense_ids = [int(x) for x in self.request.POST.getlist("expense_ids")]
         attach_unbilled_items_to_invoice(invoice, time_ids, expense_ids)
+
+        recurring_charge_ids = [int(x) for x in self.request.POST.getlist("recurring_charge_ids")]
+        attach_recurring_charges_to_invoice(invoice, recurring_charge_ids)
 
         detach_ids = [int(x) for x in self.request.POST.getlist("detach_ids")]
         if detach_ids:
@@ -359,20 +388,30 @@ class InvoiceDeleteView(ReadOnlyUserMixin, LoginRequiredMixin, DeleteView):
         if self.object.status != InvoiceStatus.DRAFT:
             return HttpResponseForbidden("Only draft invoices can be deleted.")
 
+        from billing.services import _recompute_charge_last_billed_date
         for line in self.object.lines.all():
-            if line.time_entry_id:
-                te = line.time_entry
-                te.invoice_line = None
-                if te.status == BillableStatus.BILLED:
-                    te.status = BillableStatus.UNBILLED
-                te.save(update_fields=["invoice_line", "status"])
+            if line.line_type == InvoiceLine.LineType.TIME:
+                te = getattr(line, "time_entry", None)
+                if te:
+                    te.invoice_line = None
+                    if te.status == BillableStatus.BILLED:
+                        te.status = BillableStatus.UNBILLED
+                    te.save(update_fields=["invoice_line", "status"])
 
-            if line.expense_id:
-                e = line.expense
-                e.invoice_line = None
-                if e.status == BillableStatus.BILLED:
-                    e.status = BillableStatus.UNBILLED
-                e.save(update_fields=["invoice_line", "status"])
+            elif line.line_type == InvoiceLine.LineType.EXPENSE:
+                ex = getattr(line, "expense", None)
+                if ex:
+                    ex.invoice_line = None
+                    if ex.status == BillableStatus.BILLED:
+                        ex.status = BillableStatus.UNBILLED
+                    ex.save(update_fields=["invoice_line", "status"])
+
+            elif line.line_type == InvoiceLine.LineType.RECURRING:
+                occurrence = getattr(line, "recurring_charge_occurrence", None)
+                if occurrence:
+                    charge = occurrence.recurring_charge
+                    occurrence.delete()
+                    _recompute_charge_last_billed_date(charge)
 
         return super().delete(request, *args, **kwargs)
 

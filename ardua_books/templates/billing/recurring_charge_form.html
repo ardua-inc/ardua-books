@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if object %}
+  <h1>Edit Recurring Charge</h1>
+{% else %}
+  <h1>New Recurring Charge</h1>
+{% endif %}
+
+{% if form.non_field_errors %}
+<div class="alert alert-danger">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post" style="max-width: 600px;">
+  {% csrf_token %}
+
+  <div class="mb-3">
+    {{ form.client.label_tag }}
+    {{ form.client }}
+    {% if form.client.errors %}<div class="text-danger">{{ form.client.errors }}</div>{% endif %}
+  </div>
+
+  <div class="mb-3">
+    {{ form.description.label_tag }}
+    {{ form.description }}
+    {% if form.description.errors %}<div class="text-danger">{{ form.description.errors }}</div>{% endif %}
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-6">
+      {{ form.amount.label_tag }}
+      {{ form.amount }}
+      {% if form.amount.errors %}<div class="text-danger">{{ form.amount.errors }}</div>{% endif %}
+    </div>
+    <div class="col-md-6">
+      {{ form.frequency.label_tag }}
+      {{ form.frequency }}
+      {% if form.frequency.errors %}<div class="text-danger">{{ form.frequency.errors }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-6">
+      {{ form.start_date.label_tag }}
+      {{ form.start_date }}
+      {% if form.start_date.errors %}<div class="text-danger">{{ form.start_date.errors }}</div>{% endif %}
+    </div>
+    <div class="col-md-6">
+      {{ form.end_date.label_tag }}
+      {{ form.end_date }}
+      <small class="text-muted">{{ form.end_date.help_text }}</small>
+      {% if form.end_date.errors %}<div class="text-danger">{{ form.end_date.errors }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <div class="form-check">
+      {{ form.is_active }}
+      {{ form.is_active.label_tag }}
+    </div>
+    {% if form.is_active.errors %}<div class="text-danger">{{ form.is_active.errors }}</div>{% endif %}
+  </div>
+
+  {% if object and object.last_billed_date %}
+  <div class="alert alert-info">
+    <strong>Last billed:</strong> {{ object.last_billed_date }}
+    &mdash;
+    <strong>Billing history:</strong> {{ object.occurrences.count }} invoice(s)
+  </div>
+  {% endif %}
+
+  <button type="submit" class="btn btn-primary">Save</button>
+  <a href="{% url 'billing:recurring_charge_list' %}" class="btn btn-secondary">Cancel</a>
+</form>
+
+{% endblock %}

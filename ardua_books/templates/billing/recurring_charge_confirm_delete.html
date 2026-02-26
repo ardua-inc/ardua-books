@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Delete Recurring Charge</h1>
+
+<div class="alert alert-warning">
+  Are you sure you want to delete this recurring charge?
+  <br>
+  <strong>{{ object }}</strong>
+</div>
+
+<p>This action cannot be undone. Only charges that have never been billed can be deleted.</p>
+
+<form method="post">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-danger">Delete</button>
+  <a href="{% url 'billing:recurring_charge_list' %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

@@ -7,7 +7,35 @@ from .models import (
     Expense,
     Invoice,
     InvoiceLine,
+    RecurringCharge,
 )
+
+
+class RecurringChargeForm(forms.ModelForm):
+    class Meta:
+        model = RecurringCharge
+        fields = [
+            "client",
+            "description",
+            "amount",
+            "frequency",
+            "start_date",
+            "end_date",
+            "is_active",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 2}),
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get("start_date")
+        end = cleaned.get("end_date")
+        if start and end and end < start:
+            raise forms.ValidationError("End date cannot be before start date.")
+        return cleaned
 
 
 class ClientForm(forms.ModelForm):
@@ -119,8 +147,12 @@ class InvoiceLineForm(forms.ModelForm):
 
     def clean_line_type(self):
         lt = self.cleaned_data["line_type"]
-        if lt in (InvoiceLine.LineType.TIME, InvoiceLine.LineType.EXPENSE):
-            raise forms.ValidationError("TIME/EXPENSE lines cannot be edited here.")
+        if lt in (
+            InvoiceLine.LineType.TIME,
+            InvoiceLine.LineType.EXPENSE,
+            InvoiceLine.LineType.RECURRING,
+        ):
+            raise forms.ValidationError("TIME/EXPENSE/RECURRING lines cannot be edited here.")
         return lt
   
     def __init__(self, *args, **kwargs):
