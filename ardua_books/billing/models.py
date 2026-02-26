@@ -359,23 +359,71 @@ class RecurringCharge(TimeStampedModel):
     @property
     def is_due(self):
         """True if this charge has never been billed, or the billing period has rolled over."""
+        return len(self.get_due_periods()) > 0
+
+    def get_due_periods(self):
+        """
+        Returns a list of (period_date, period_label) tuples for each unbilled period.
+        period_date is the first day of the billing period.
+        """
         from datetime import date as _date
+
+        def add_months(d, months):
+            """Add months to a date, returning first of that month."""
+            month = d.month - 1 + months
+            year = d.year + month // 12
+            month = month % 12 + 1
+            return _date(year, month, 1)
+
         today = _date.today()
-        if not self.last_billed_date:
-            return True
-        if self.frequency == FrequencyChoices.MONTHLY:
-            return (today.year, today.month) > (
-                self.last_billed_date.year, self.last_billed_date.month
-            )
-        elif self.frequency == FrequencyChoices.QUARTERLY:
-            months_since = (
-                (today.year - self.last_billed_date.year) * 12
-                + (today.month - self.last_billed_date.month)
-            )
-            return months_since >= 3
-        elif self.frequency == FrequencyChoices.ANNUALLY:
-            return today.year > self.last_billed_date.year
-        return True
+        periods = []
+
+        # Determine the first period to check
+        if self.last_billed_date:
+            # Start from the period after the last billed one
+            if self.frequency == FrequencyChoices.MONTHLY:
+                first_period = add_months(self.last_billed_date, 1)
+            elif self.frequency == FrequencyChoices.QUARTERLY:
+                first_period = add_months(self.last_billed_date, 3)
+            elif self.frequency == FrequencyChoices.ANNUALLY:
+                first_period = _date(self.last_billed_date.year + 1, 1, 1)
+            else:
+                return periods
+        else:
+            # Never billed - start from start_date's period
+            first_period = self.start_date.replace(day=1)
+
+        # Don't go before start_date
+        start_period = self.start_date.replace(day=1)
+        if first_period < start_period:
+            first_period = start_period
+
+        # Generate periods up to current period
+        current_period = today.replace(day=1)
+        period = first_period
+
+        while period <= current_period:
+            # Check end_date constraint
+            if self.end_date and period > self.end_date:
+                break
+
+            if self.frequency == FrequencyChoices.MONTHLY:
+                label = period.strftime("%B %Y")
+                periods.append((period, label))
+                period = add_months(period, 1)
+            elif self.frequency == FrequencyChoices.QUARTERLY:
+                quarter = (period.month - 1) // 3 + 1
+                label = f"Q{quarter} {period.year}"
+                periods.append((period, label))
+                period = add_months(period, 3)
+            elif self.frequency == FrequencyChoices.ANNUALLY:
+                label = str(period.year)
+                periods.append((period, label))
+                period = _date(period.year + 1, 1, 1)
+            else:
+                break
+
+        return periods
 
 
 class InvoiceLine(TimeStampedModel):

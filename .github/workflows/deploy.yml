@@ -19,6 +19,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_PAT }}
 
+      - name: Get commit timestamp
+        id: commit_date
+        run: echo "date=$(git log -1 --format=%cI)" >> $GITHUB_OUTPUT
+
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
@@ -28,6 +32,7 @@ jobs:
           no-cache: true
           build-args: |
             GIT_COMMIT=${{ github.sha }}
+            GIT_COMMIT_DATE=${{ steps.commit_date.outputs.date }}
           tags: |
             ghcr.io/ardua-inc/ardua-books:latest
             ghcr.io/ardua-inc/ardua-books:${{ github.sha }}

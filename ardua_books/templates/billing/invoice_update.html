@@ -85,7 +85,7 @@
 <hr>
 
 <h4>Unbilled Items</h4>
-{% include "billing/invoice_unbilled_fragment.html" with client=invoice.client.id unbilled_time=unbilled_time unbilled_expenses=unbilled_expenses %}
+{% include "billing/invoice_unbilled_fragment.html" with client=invoice.client.id unbilled_time=unbilled_time unbilled_expenses=unbilled_expenses recurring_periods=recurring_periods total_time_value=total_time_value total_expense_value=total_expense_value total_recurring_value=total_recurring_value subtotal=subtotal %}
 
   <hr>
 

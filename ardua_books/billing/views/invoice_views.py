@@ -192,8 +192,8 @@ class InvoiceCreateView(ReadOnlyUserMixin, LoginRequiredMixin, CreateView):
             invoice.due_date = invoice.issue_date + timedelta(
                 days=invoice.client.payment_terms_days
             )
-        invoice.save()
 
+        # Validate formset BEFORE saving the invoice
         formset = CreateInvoiceLineFormSet(
             self.request.POST,
             instance=invoice,
@@ -203,14 +203,25 @@ class InvoiceCreateView(ReadOnlyUserMixin, LoginRequiredMixin, CreateView):
             ctx = self.get_context_data(form=form)
             ctx["formset"] = formset
             return self.render_to_response(ctx)
+
+        # Now safe to save - formset is valid
+        invoice.save()
         formset.save()
 
         time_ids = [int(x) for x in self.request.POST.getlist("time_ids")]
         expense_ids = [int(x) for x in self.request.POST.getlist("expense_ids")]
         attach_unbilled_items_to_invoice(invoice, time_ids, expense_ids)
 
-        recurring_charge_ids = [int(x) for x in self.request.POST.getlist("recurring_charge_ids")]
-        attach_recurring_charges_to_invoice(invoice, recurring_charge_ids)
+        # Parse recurring charge values: "charge_id:YYYY-MM-DD"
+        charge_period_list = []
+        for val in self.request.POST.getlist("recurring_charge_ids"):
+            if ":" in val:
+                charge_id_str, date_str = val.split(":", 1)
+                charge_period_list.append((
+                    int(charge_id_str),
+                    datetime.date.fromisoformat(date_str)
+                ))
+        attach_recurring_charges_to_invoice(invoice, charge_period_list)
 
         invoice.recalculate_totals()
         return redirect("billing:invoice_detail", pk=invoice.pk)
@@ -257,13 +268,25 @@ class InvoiceUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
         )
 
         today = datetime.date.today()
-        ctx["recurring_charges"] = RecurringCharge.objects.filter(
+        recurring_charges = RecurringCharge.objects.filter(
             client=client,
             is_active=True,
             start_date__lte=today,
         ).filter(
             Q(end_date__isnull=True) | Q(end_date__gte=today)
         ).order_by("description")
+
+        # Build list of due recurring charge periods
+        recurring_periods = []
+        for rc in recurring_charges:
+            for period_date, period_label in rc.get_due_periods():
+                recurring_periods.append({
+                    "charge": rc,
+                    "period_date": period_date,
+                    "period_label": period_label,
+                    "form_value": f"{rc.id}:{period_date.isoformat()}",
+                })
+        ctx["recurring_periods"] = recurring_periods
 
         ctx["total_time_value"] = sum(
             te.hours * te.billing_rate for te in ctx["unbilled_time"]
@@ -272,7 +295,7 @@ class InvoiceUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
             ex.amount for ex in ctx["unbilled_expenses"]
         )
         ctx["total_recurring_value"] = sum(
-            rc.amount for rc in ctx["recurring_charges"]
+            rp["charge"].amount for rp in recurring_periods
         )
         ctx["subtotal"] = (
             ctx["total_time_value"]
@@ -307,8 +330,16 @@ class InvoiceUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
         expense_ids = [int(x) for x in self.request.POST.getlist("expense_ids")]
         attach_unbilled_items_to_invoice(invoice, time_ids, expense_ids)
 
-        recurring_charge_ids = [int(x) for x in self.request.POST.getlist("recurring_charge_ids")]
-        attach_recurring_charges_to_invoice(invoice, recurring_charge_ids)
+        # Parse recurring charge values: "charge_id:YYYY-MM-DD"
+        charge_period_list = []
+        for val in self.request.POST.getlist("recurring_charge_ids"):
+            if ":" in val:
+                charge_id_str, date_str = val.split(":", 1)
+                charge_period_list.append((
+                    int(charge_id_str),
+                    datetime.date.fromisoformat(date_str)
+                ))
+        attach_recurring_charges_to_invoice(invoice, charge_period_list)
 
         detach_ids = [int(x) for x in self.request.POST.getlist("detach_ids")]
         if detach_ids:

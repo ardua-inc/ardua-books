@@ -163,7 +163,8 @@ class InvoiceLineForm(forms.ModelForm):
             InvoiceLine.LineType.GENERAL,
             InvoiceLine.LineType.ADJUSTMENT,
         ]
-        self.fields["line_type"].choices = [
+        # Include blank option so empty forms aren't auto-filled by browser
+        self.fields["line_type"].choices = [("", "---------")] + [
             (value, label)
             for value, label in InvoiceLine.LineType.choices
             if value in allowed
@@ -217,10 +218,11 @@ class GeneralAdjustmentLineFormSet(BaseInlineFormSet):
             if desc == "" and price == "":
                 form.empty_permitted = True
 
-                # IMPORTANT: Pretend DELETE checkbox was checked
-                mutable = data.copy()
-                mutable[prefix("DELETE")] = "on"
-                form.data = mutable
+                # Only set DELETE if can_delete is enabled on the formset
+                if self.can_delete:
+                    mutable = data.copy()
+                    mutable[prefix("DELETE")] = "on"
+                    form.data = mutable
 
         return form
     

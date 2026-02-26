@@ -26,6 +26,12 @@
                     {% endif %}
                 </td>
             </tr>
+            {% if commit_date %}
+            <tr>
+                <th>Built:</th>
+                <td>{{ commit_date|date:"M j, Y" }} at {{ commit_date|time:"g:i A" }}</td>
+            </tr>
+            {% endif %}
         </table>
     </div>
 

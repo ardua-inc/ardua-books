@@ -87,18 +87,37 @@ def attach_unbilled_items_to_invoice(invoice, time_ids, expense_ids):
         line.save()
 
 
-def attach_recurring_charges_to_invoice(invoice, charge_ids):
+def attach_recurring_charges_to_invoice(invoice, charge_period_list):
     """
     Creates InvoiceLines and RecurringChargeOccurrences for the selected
-    recurring charges and updates each charge's last_billed_date.
-    """
-    today = datetime.date.today()
+    recurring charge periods and updates each charge's last_billed_date.
 
-    for charge in RecurringCharge.objects.filter(id__in=charge_ids):
+    charge_period_list: list of (charge_id, period_date) tuples
+    """
+    # Group by charge to update last_billed_date correctly
+    charges_to_update = {}
+
+    for charge_id, period_date in charge_period_list:
+        try:
+            charge = RecurringCharge.objects.get(id=charge_id)
+        except RecurringCharge.DoesNotExist:
+            continue
+
+        # Format period label for description
+        if charge.frequency == "MONTHLY":
+            period_label = period_date.strftime("%B %Y")
+        elif charge.frequency == "QUARTERLY":
+            quarter = (period_date.month - 1) // 3 + 1
+            period_label = f"Q{quarter} {period_date.year}"
+        elif charge.frequency == "ANNUALLY":
+            period_label = str(period_date.year)
+        else:
+            period_label = period_date.strftime("%B %Y")
+
         line = InvoiceLine.objects.create(
             invoice=invoice,
             line_type=InvoiceLine.LineType.RECURRING,
-            description=charge.description,
+            description=f"{charge.description} ({period_label})",
             quantity=1,
             unit_price=charge.amount,
         )
@@ -107,13 +126,20 @@ def attach_recurring_charges_to_invoice(invoice, charge_ids):
             recurring_charge=charge,
             invoice_line=line,
             amount_billed=charge.amount,
-            occurrence_date=today,
+            occurrence_date=period_date,
         )
 
-        charge.last_billed_date = today
-        charge.save(update_fields=["last_billed_date"])
-
         line.save()
+
+        # Track the latest period_date for each charge
+        if charge_id not in charges_to_update or period_date > charges_to_update[charge_id][1]:
+            charges_to_update[charge_id] = (charge, period_date)
+
+    # Update last_billed_date for each charge to the latest billed period
+    for charge, latest_period in charges_to_update.values():
+        if charge.last_billed_date is None or latest_period > charge.last_billed_date:
+            charge.last_billed_date = latest_period
+            charge.save(update_fields=["last_billed_date"])
 
 
 def _recompute_charge_last_billed_date(charge):

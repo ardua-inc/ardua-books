@@ -33,8 +33,10 @@ DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 # Application version
 # VERSION: Manually updated semantic version (update when releasing)
 # APP_VERSION: Git commit SHA (auto-set during Docker build)
-VERSION = "3.2.0"
+# APP_COMMIT_DATE: Git commit timestamp (auto-set during Docker build)
+VERSION = "3.3.0"
 APP_VERSION = os.getenv("APP_VERSION", "dev")
+APP_COMMIT_DATE = os.getenv("APP_COMMIT_DATE", "")
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 

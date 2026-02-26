@@ -104,7 +104,41 @@ Expenses represent reimbursable or non-reimbursable costs.
 | name | Category name (unique) |
 | billable_by_default | Default billable flag for new expenses |
 
-### 2.6 Invoice Management
+### 2.6 Recurring Charges
+
+Recurring charges represent fixed-fee items billed on a regular schedule (e.g., monthly hosting fees, quarterly retainers).
+
+| Field | Description |
+|-------|-------------|
+| client | Associated client |
+| description | Charge description |
+| amount | Charge amount |
+| frequency | MONTHLY, QUARTERLY, or ANNUALLY |
+| start_date | Date charge becomes active |
+| end_date | Optional end date (null for indefinite) |
+| is_active | Active/inactive flag |
+| last_billed_date | Date of most recent billing (auto-updated) |
+
+**Behavior:**
+- Active charges with `start_date` on or before today appear when creating invoices
+- System calculates all unbilled periods since `start_date` or `last_billed_date`
+- Each period shown as separate selectable row (e.g., "January 2026", "February 2026")
+- When attached to invoice, creates `RecurringChargeOccurrence` record
+- `last_billed_date` updated to latest billed period
+- If invoice voided/deleted, occurrences removed and `last_billed_date` recomputed
+
+### 2.6.1 Recurring Charge Occurrences
+
+Each time a recurring charge is billed, an occurrence record is created:
+
+| Field | Description |
+|-------|-------------|
+| recurring_charge | Parent RecurringCharge |
+| invoice_line | Associated InvoiceLine |
+| amount_billed | Amount at time of billing (snapshot) |
+| occurrence_date | First day of the billing period |
+
+### 2.7 Invoice Management
 
 Invoices aggregate billable time and expenses for a client.
 
@@ -127,41 +161,50 @@ Invoices aggregate billable time and expenses for a client.
 - Due date defaults to issue_date + client.payment_terms_days
 - Cached totals recalculated when lines change
 
-### 2.7 Invoice Lines
+### 2.8 Invoice Lines
 
 Each invoice contains one or more line items:
 
 | Field | Description |
 |-------|-------------|
 | invoice | Parent invoice |
-| line_type | TIME, EXPENSE, ADJUSTMENT, or GENERAL |
+| line_type | TIME, EXPENSE, RECURRING, ADJUSTMENT, or GENERAL |
 | description | Line item description |
-| quantity | Quantity (hours for time, 1 for expenses) |
+| quantity | Quantity (hours for time, 1 for expenses/recurring) |
 | unit_price | Rate or amount |
 | line_total | Auto-calculated (quantity x unit_price) |
 
 **Behavior:**
 - TIME lines link back to TimeEntry records
 - EXPENSE lines link back to Expense records
+- RECURRING lines link back to RecurringChargeOccurrence records
 - Line total automatically computed on save
 - Lines ordered by creation time
 
-### 2.8 Attaching Unbilled Items
+### 2.9 Attaching Unbilled Items
 
-From invoice edit, users select unbilled time and expenses to attach:
+From invoice create/edit, users select unbilled time, expenses, and recurring charge periods to attach:
 
-**Selection Criteria:**
+**Selection Criteria for Time/Expenses:**
 - Same client as invoice
 - Status is UNBILLED
 - Not already attached to any invoice
 
+**Selection Criteria for Recurring Charges:**
+- Same client as invoice
+- Charge is active
+- `start_date` on or before today
+- Has unbilled periods (based on `last_billed_date` and frequency)
+
 **Attachment Process:**
 - TIME line created: quantity = hours, unit_price = billing_rate
 - EXPENSE line created: quantity = 1, unit_price = amount
+- RECURRING line created: quantity = 1, unit_price = charge amount, description includes period label
 - Source item links to new InvoiceLine via `invoice_line` field
+- For recurring charges, RecurringChargeOccurrence created and `last_billed_date` updated
 - Invoice totals recalculated immediately
 
-### 2.9 Invoice Status Transitions
+### 2.10 Invoice Status Transitions
 
 | Transition | Actions |
 |------------|---------|
@@ -170,7 +213,7 @@ From invoice edit, users select unbilled time and expenses to attach:
 | ISSUED → DRAFT | GL reversing entry created; allows line editing |
 | Delete DRAFT | Attached items detached and reverted to UNBILLED |
 
-### 2.10 PDF Generation
+### 2.11 PDF Generation
 
 The system generates:
 
@@ -403,6 +446,15 @@ Client (1) ─────────────── (*) TimeEntry
    │                              ▼
    ├──────────────────── (*) InvoiceLine ◄─── (*) Expense
    │                              │
+   │                              │ ▲
+   │                              │ │ invoice_line
+   │                              │ │
+   │                              │ RecurringChargeOccurrence
+   │                              │         │
+   │                              │         │ recurring_charge
+   │                              │         ▼
+   ├──────────────────── (*) RecurringCharge
+   │                              │
    │                              │ invoice
    │                              ▼
    └─────────────────────── (*) Invoice
@@ -428,10 +480,13 @@ Client (1) ─────────────── (*) TimeEntry
 |--------------|------|-------------|
 | Client → TimeEntry | 1:N | Client has many time entries |
 | Client → Expense | 1:N | Client has many expenses (if billable) |
+| Client → RecurringCharge | 1:N | Client has many recurring charges |
 | Client → Invoice | 1:N | Client has many invoices |
 | Invoice → InvoiceLine | 1:N | Invoice has many lines |
 | TimeEntry → InvoiceLine | 1:1 | Time entry links to one line |
 | Expense → InvoiceLine | 1:1 | Expense links to one line |
+| RecurringChargeOccurrence → InvoiceLine | 1:1 | Occurrence links to one line |
+| RecurringCharge → RecurringChargeOccurrence | 1:N | Charge has many occurrences |
 | Invoice → JournalEntry | 1:N | Invoice may have multiple entries (post/reverse) |
 | Payment → JournalEntry | 1:1 | Payment creates one GL entry |
 | Payment → PaymentApplication | 1:N | Payment allocated to multiple invoices |
@@ -466,8 +521,8 @@ Client (1) ─────────────── (*) TimeEntry
 ### 7.2 Module Organization
 
 **billing/** – Operational billing and receivables
-- `models.py` – Client, Consultant, TimeEntry, Expense, Invoice, InvoiceLine
-- `services.py` – Invoice number generation, item attachment/detachment
+- `models.py` – Client, Consultant, TimeEntry, Expense, Invoice, InvoiceLine, RecurringCharge, RecurringChargeOccurrence
+- `services.py` – Invoice number generation, item attachment/detachment, recurring charge billing
 - `views.py` – CRUD views, PDF generation, mobile endpoints
 - `forms.py` – Django forms for data entry
 - `templatetags/` – Custom template filters
@@ -493,6 +548,13 @@ Client (1) ─────────────── (*) TimeEntry
 - Creates InvoiceLine for each selected item
 - Links source item to line via `invoice_line` FK
 - Recalculates invoice totals
+
+**Recurring Charge Billing** (`billing/services.py`):
+- Calculates due periods based on frequency and `last_billed_date`
+- Creates InvoiceLine with period label in description (e.g., "Hosting Fee (January 2026)")
+- Creates RecurringChargeOccurrence linking charge to line
+- Updates `last_billed_date` to latest billed period
+- On invoice void/delete, removes occurrences and recomputes `last_billed_date`
 
 **GL Posting** (`accounting/services/posting.py`):
 - Creates JournalEntry with balanced lines

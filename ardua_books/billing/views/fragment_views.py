@@ -42,6 +42,18 @@ def invoice_unbilled_fragment(request):
         Q(end_date__isnull=True) | Q(end_date__gte=today)
     ).order_by("description")
 
+    # Build list of due recurring charge periods
+    recurring_periods = []
+    for rc in recurring_charges:
+        for period_date, period_label in rc.get_due_periods():
+            recurring_periods.append({
+                "charge": rc,
+                "period_date": period_date,
+                "period_label": period_label,
+                # Composite ID for form submission: "charge_id:YYYY-MM-DD"
+                "form_value": f"{rc.id}:{period_date.isoformat()}",
+            })
+
     total_time_value = sum(
         (te.hours * te.billing_rate) for te in unbilled_time
     )
@@ -49,7 +61,7 @@ def invoice_unbilled_fragment(request):
         ex.amount for ex in unbilled_expenses
     )
     total_recurring_value = sum(
-        rc.amount for rc in recurring_charges
+        rp["charge"].amount for rp in recurring_periods
     )
     subtotal = total_time_value + total_expense_value + total_recurring_value
 
@@ -57,7 +69,7 @@ def invoice_unbilled_fragment(request):
         "client": client_id,
         "unbilled_time": unbilled_time,
         "unbilled_expenses": unbilled_expenses,
-        "recurring_charges": recurring_charges,
+        "recurring_periods": recurring_periods,
         "total_time_value": total_time_value,
         "total_expense_value": total_expense_value,
         "total_recurring_value": total_recurring_value,

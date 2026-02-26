@@ -6,7 +6,7 @@
   </p>
 {% endif %}
 
-{% if not unbilled_time and not unbilled_expenses and not recurring_charges %}
+{% if not unbilled_time and not unbilled_expenses and not recurring_periods %}
   <p class="text-muted">No unbilled time entries, expenses, or recurring charges.</p>
 {% endif %}
 
@@ -65,31 +65,25 @@
     {% endfor %}
 
     <!-- RECURRING CHARGES -->
-    {% for rc in recurring_charges %}
-      <tr {% if rc.is_due %}class="table-warning"{% endif %}>
+    {% for rp in recurring_periods %}
+      <tr class="table-warning">
         <td>
           <input type="checkbox" class="unbilled-item"
-                 name="recurring_charge_ids" value="{{ rc.id }}"
-                 {% if rc.is_due %}checked{% endif %}>
+                 name="recurring_charge_ids" value="{{ rp.form_value }}"
+                 checked>
         </td>
         <td>
-          {{ rc.get_frequency_display }}
-          {% if rc.last_billed_date %}
-            <br><small class="text-muted">Last: {{ rc.last_billed_date }}</small>
-          {% else %}
-            <br><small class="text-muted">Never billed</small>
-          {% endif %}
+          {{ rp.period_label }}
+          <br><small class="text-muted">{{ rp.charge.get_frequency_display }}</small>
         </td>
         <td>
           Recurring
-          {% if rc.is_due %}
-            <span class="badge bg-warning text-dark">Due</span>
-          {% endif %}
+          <span class="badge bg-warning text-dark">Due</span>
         </td>
         <td>1</td>
-        <td>${{ rc.amount|floatformat:2 }}</td>
-        <td>${{ rc.amount|floatformat:2 }}</td>
-        <td>{{ rc.description }}</td>
+        <td>${{ rp.charge.amount|floatformat:2 }}</td>
+        <td>${{ rp.charge.amount|floatformat:2 }}</td>
+        <td>{{ rp.charge.description }}</td>
       </tr>
     {% endfor %}
 
@@ -111,7 +105,7 @@
       <th></th>
     </tr>
     {% endif %}
-    {% if recurring_charges %}
+    {% if recurring_periods %}
     <tr>
       <th colspan="5" class="text-end">Total Recurring:</th>
       <th>${{ total_recurring_value|floatformat:2 }}</th>

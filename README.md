@@ -10,7 +10,8 @@ Ardua Books is a lightweight billing, invoicing, and accounting system designed 
 - **Client Management** – Contact info, default rates, payment terms, active/inactive status
 - **Time Entry Tracking** – Billable hours with consultant attribution and rate snapshots
 - **Expense Tracking** – Categorized expenses with receipt uploads (images/PDFs)
-- **Invoice Generation** – Auto-numbered invoices (YYYY-NNN format) with status workflow
+- **Recurring Charges** – Define monthly, quarterly, or annual charges per client (e.g., hosting fees, retainers) that automatically appear as due when creating invoices
+- **Invoice Generation** – Auto-numbered invoices (YYYY-NNN format) with status workflow; attach time entries, expenses, and recurring charges
 - **PDF Generation** – Professional invoice PDFs with attached receipt pages
 
 ### Accounting
@@ -63,8 +64,8 @@ ardua_books/
 │   └── wsgi.py / asgi.py
 │
 ├── billing/                  # Billing & invoicing module
-│   ├── models.py             # Client, Consultant, TimeEntry, Expense, Invoice
-│   ├── services.py           # Invoice generation, item attachment
+│   ├── models.py             # Client, Consultant, TimeEntry, Expense, Invoice, RecurringCharge
+│   ├── services.py           # Invoice generation, item attachment, recurring charge billing
 │   ├── views/                # CRUD views + PDF generation
 │   ├── forms.py
 │   ├── urls.py
@@ -207,12 +208,14 @@ python manage.py clear_transactions --yes  # Skip confirmation
 - Consultants
 - Expense categories
 - Clients
+- Recurring charge definitions
 
 **Deletes:**
 - Journal entries & lines
 - Time entries
 - Expenses
 - Invoices & invoice lines
+- Recurring charge occurrences
 - Payments & payment applications
 - Bank transactions
 
@@ -352,8 +355,8 @@ docker compose exec web python manage.py migrate_data import --input /app/data_e
 
 | Category | Models |
 |----------|--------|
-| **Metadata** | Users, Groups, Clients, Consultants, ExpenseCategories, ChartOfAccounts, BankAccounts, BankImportProfiles |
-| **Transactions** | TimeEntries, Expenses, Invoices, InvoiceLines, JournalEntries, JournalLines, Payments, PaymentApplications, BankTransactions |
+| **Metadata** | Users, Groups, Clients, Consultants, ExpenseCategories, ChartOfAccounts, BankAccounts, BankImportProfiles, RecurringCharges |
+| **Transactions** | TimeEntries, Expenses, Invoices, InvoiceLines, RecurringChargeOccurrences, JournalEntries, JournalLines, Payments, PaymentApplications, BankTransactions |
 
 #### Migration Tips
 
