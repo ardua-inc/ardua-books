@@ -21,7 +21,9 @@
             <td>{{ e.get_status_display }}</td>
             <td>{{ e.description|truncatewords:10 }}</td>
             <td>
+                {% if e.status != 'BILLED' %}
                 <a href="{% url 'billing:expense_edit' e.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
