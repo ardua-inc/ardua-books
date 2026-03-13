@@ -17,6 +17,7 @@ pydyf==0.11.0
 pypdf==6.4.0
 pyphen==0.17.2
 pytokens==0.3.0
+django-allauth==0.61.1
 psycopg[binary]
 sqlparse==0.5.3
 tinycss2==1.5.1
