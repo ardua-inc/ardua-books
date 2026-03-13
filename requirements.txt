@@ -23,3 +23,10 @@ weasyprint==66.0
 webencodings==0.5.1
 whitenoise
 zopfli==0.4.0
+
+# Added for SSO
+requests
+PyJWT
+cryptography
+django-allauth==0.61.1
+python-dotenv

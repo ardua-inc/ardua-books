@@ -75,17 +75,19 @@ td, th {
   font-size: 1.5rem;
   font-weight: 700;
   margin-right: 2.5rem;
+  white-space: nowrap;
 }
 
 .app-nav {
   display: flex;
-  gap: 1.75rem;              /* space between "Clients / Time / ..." */
+  gap: 1.25rem;              /* space between "Clients / Time / ..." */
 }
 
 .app-nav a {
   color: #e5e7eb;
   font-size: 0.95rem;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .app-nav a:hover {
@@ -202,6 +204,7 @@ td, th {
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   transition: background-color 0.15s;
+  white-space: nowrap;
 }
 
 .app-user-menu > summary:hover {
