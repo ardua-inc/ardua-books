@@ -65,6 +65,8 @@ jobs:
               docker compose pull web
               docker compose up -d --force-recreate --remove-orphans
               docker image prune -f
+              echo "Waiting for postgres..."
+              until docker compose exec -T db pg_isready; do sleep 1; done
               docker compose exec -T web python manage.py migrate
               docker compose exec -T web python manage.py collectstatic --noinput
             '
