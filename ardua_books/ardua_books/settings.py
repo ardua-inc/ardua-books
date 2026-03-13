@@ -243,6 +243,10 @@ AUTHENTICATION_BACKENDS = [
 
 SITE_ID = 1
 
+# Production runs behind a reverse proxy that terminates HTTPS.
+# This ensures allauth builds https:// callback URLs for OAuth.
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.getenv('ACCOUNT_DEFAULT_HTTP_PROTOCOL', 'https')
+
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_ALLOW_REGISTRATION = False
