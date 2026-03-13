@@ -4,13 +4,14 @@ General Ledger / Journal Entry views.
 from datetime import date, timedelta
 
 from django.core.paginator import Paginator
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, DetailView, TemplateView
 
 from accounting.models import JournalEntry, JournalLine
 from accounting.views.mixins import FilterPersistenceMixin
 
 
-class JournalEntryListView(FilterPersistenceMixin, TemplateView):
+class JournalEntryListView(LoginRequiredMixin, FilterPersistenceMixin, TemplateView):
     template_name = "accounting/journal_entry_list.html"
 
     # Filter persistence
@@ -93,7 +94,7 @@ class JournalEntryListView(FilterPersistenceMixin, TemplateView):
         return ctx
 
 
-class JournalEntryDetailView(DetailView):
+class JournalEntryDetailView(LoginRequiredMixin, DetailView):
     model = JournalEntry
     template_name = "accounting/journal_entry_detail.html"
 

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+  <div class="auth-card">
+    <h2>Redirecting to Google&hellip;</h2>
+    <form id="google-login-form" method="post">
+      {% csrf_token %}
+      <noscript>
+        <p style="margin-bottom:1rem;color:#374151;">
+          You are about to sign in using your Google account.
+        </p>
+        <button type="submit" class="btn btn-primary auth-submit">Continue</button>
+      </noscript>
+    </form>
+  </div>
+</div>
+
+<style>
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+}
+.auth-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 2.5rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+}
+.auth-card h2 {
+  margin: 0 0 1rem 0;
+  color: #1f2933;
+}
+.auth-submit {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+</style>
+
+<script>
+  document.getElementById("google-login-form").submit();
+</script>
+{% endblock %}

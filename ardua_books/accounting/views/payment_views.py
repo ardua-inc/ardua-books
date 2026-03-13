@@ -10,6 +10,8 @@ from django.forms import formset_factory
 from django.forms.utils import ErrorList
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.views.generic import ListView, DetailView, FormView
 
@@ -36,7 +38,7 @@ DEFAULT_PAGE_SIZE = 20
 PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 
-class PaymentListView(FilterPersistenceMixin, ListView):
+class PaymentListView(LoginRequiredMixin, FilterPersistenceMixin, ListView):
     model = Payment
     template_name = "accounting/payment_list.html"
     context_object_name = "payments"
@@ -131,13 +133,13 @@ class PaymentListView(FilterPersistenceMixin, ListView):
         return context
 
 
-class PaymentDetailView(DetailView):
+class PaymentDetailView(LoginRequiredMixin, DetailView):
     model = Payment
     template_name = "accounting/payment_detail.html"
     context_object_name = "payment"
 
 
-class PaymentCreateGeneralView(ReadOnlyUserMixin, View):
+class PaymentCreateGeneralView(LoginRequiredMixin, ReadOnlyUserMixin, View):
     template_name = "accounting/payment_general_form.html"
 
     def get(self, request):
@@ -270,7 +272,7 @@ class PaymentCreateGeneralView(ReadOnlyUserMixin, View):
         return redirect("accounting:payment_detail", pk=payment.id)
 
 
-class PaymentCreateFromTransactionView(ReadOnlyUserMixin, View):
+class PaymentCreateFromTransactionView(LoginRequiredMixin, ReadOnlyUserMixin, View):
     template_name = "accounting/payment_from_transaction_form.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -412,7 +414,7 @@ class PaymentCreateFromTransactionView(ReadOnlyUserMixin, View):
         return redirect("accounting:bankaccount_register", pk=self.bank_account.pk)
 
 
-class PaymentCreateForInvoiceView(ReadOnlyUserMixin, FormView):
+class PaymentCreateForInvoiceView(LoginRequiredMixin, ReadOnlyUserMixin, FormView):
     template_name = "accounting/payment_for_invoice_form.html"
     form_class = PaymentForInvoiceForm
 
@@ -455,6 +457,7 @@ class PaymentCreateForInvoiceView(ReadOnlyUserMixin, FormView):
         return reverse("billing:invoice_detail", args=[self.invoice.id])
 
 
+@login_required
 def payment_invoice_fragment(request):
     """Returns invoice allocation rows for AJAX/htmx."""
     client_id = request.GET.get("client")

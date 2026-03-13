@@ -1,15 +1,16 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from django.db.models import Sum, Case, When, F, DecimalField, Q
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 
 from accounting.models import ChartOfAccount, JournalLine, AccountType, Payment, PaymentApplication, BankAccount, BankTransaction
 from billing.models import Client, Invoice
 
-class ReportsHomeView(TemplateView):
+class ReportsHomeView(LoginRequiredMixin, TemplateView):
     template_name = "accounting/reports_home.html"
 
-class TrialBalanceView(TemplateView):
+class TrialBalanceView(LoginRequiredMixin, TemplateView):
     template_name = "accounting/trial_balance.html"
 
     def get_context_data(self, **kwargs):
@@ -97,7 +98,7 @@ class TrialBalanceView(TemplateView):
         )
         return context
 
-class IncomeStatementView(TemplateView):
+class IncomeStatementView(LoginRequiredMixin, TemplateView):
     template_name = "accounting/income_statement.html"
 
     def get_context_data(self, **kwargs):
@@ -202,7 +203,7 @@ class IncomeStatementView(TemplateView):
 
         return context
 
-class ClientBalanceSummaryView(TemplateView):
+class ClientBalanceSummaryView(LoginRequiredMixin, TemplateView):
     template_name = "accounting/client_balance_summary.html"
 
     def get_context_data(self, **kwargs):
@@ -264,7 +265,7 @@ class ClientBalanceSummaryView(TemplateView):
         return context
 
     
-class ARAgingView(TemplateView):
+class ARAgingView(LoginRequiredMixin, TemplateView):
     template_name = "accounting/ar_aging.html"
 
     def get_context_data(self, **kwargs):
@@ -316,7 +317,7 @@ class ARAgingView(TemplateView):
         return ctx
 
 
-class AccountDrilldownView(TemplateView):
+class AccountDrilldownView(LoginRequiredMixin, TemplateView):
     """
     Drilldown view showing all journal entry lines for a specific account.
     Provides links to the source documents (Expense, Payment, Invoice, etc.)
@@ -407,7 +408,7 @@ class AccountDrilldownView(TemplateView):
         return context
 
 
-class BankReconciliationScheduleView(TemplateView):
+class BankReconciliationScheduleView(LoginRequiredMixin, TemplateView):
     """
     Bank Reconciliation Schedule Report showing all bank accounts with
     opening balances, activity, ending balances, and unmatched transactions.

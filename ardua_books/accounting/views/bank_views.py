@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpResponse
@@ -38,13 +39,13 @@ from accounting.services.importing import normalize_amount
 from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin, readonly_user_check
 
 
-class BankAccountListView(ListView):
+class BankAccountListView(LoginRequiredMixin, ListView):
     model = BankAccount
     template_name = "accounting/bankaccount_list.html"
     context_object_name = "accounts"
 
 
-class BankAccountCreateView(ReadOnlyUserMixin, FormView):
+class BankAccountCreateView(LoginRequiredMixin, ReadOnlyUserMixin, FormView):
     template_name = "accounting/bankaccount_form.html"
     form_class = BankAccountForm
     success_url = reverse_lazy("accounting:bankaccount_list")
@@ -59,7 +60,7 @@ class BankAccountCreateView(ReadOnlyUserMixin, FormView):
         return super().form_valid(form)
 
 
-class BankTransactionCreateView(ReadOnlyUserMixin, FormView):
+class BankTransactionCreateView(LoginRequiredMixin, ReadOnlyUserMixin, FormView):
     template_name = "accounting/banktransaction_form.html"
     form_class = BankTransactionForm
 
@@ -100,13 +101,13 @@ class BankTransactionCreateView(ReadOnlyUserMixin, FormView):
         return ctx
 
 
-class BankTransactionListView(ListView):
+class BankTransactionListView(LoginRequiredMixin, ListView):
     model = BankTransaction
     template_name = "accounting/banktransaction_list.html"
     context_object_name = "transactions"
 
 
-class BankTransactionListForAccountView(ListView):
+class BankTransactionListForAccountView(LoginRequiredMixin, ListView):
     model = BankTransaction
     template_name = "accounting/banktransaction_list.html"
     context_object_name = "transactions"
@@ -121,7 +122,7 @@ class BankTransactionListForAccountView(ListView):
         return ctx
 
 
-class OffsetAccountFilterView(View):
+class OffsetAccountFilterView(LoginRequiredMixin, View):
     """AJAX view to filter offset accounts based on transaction amount."""
 
     def get(self, request, *args, **kwargs):
@@ -170,7 +171,7 @@ class OffsetAccountFilterView(View):
         return HttpResponse(html)
 
 
-class BankRegisterView(FilterPersistenceMixin, TemplateView):
+class BankRegisterView(LoginRequiredMixin, FilterPersistenceMixin, TemplateView):
     template_name = "accounting/bank_register.html"
 
     # Filter persistence settings
@@ -314,7 +315,7 @@ class BankRegisterView(FilterPersistenceMixin, TemplateView):
         return ctx
 
 
-class BankTransactionDetailView(DetailView):
+class BankTransactionDetailView(LoginRequiredMixin, DetailView):
     model = BankTransaction
     template_name = "accounting/banktransaction_detail.html"
     context_object_name = "txn"
@@ -333,7 +334,7 @@ class BankTransactionDetailView(DetailView):
         return ctx
 
 
-class BankTransactionCSVImportView(ReadOnlyUserMixin, View):
+class BankTransactionCSVImportView(LoginRequiredMixin, ReadOnlyUserMixin, View):
     template_name = "accounting/banktransaction_import.html"
 
     def get(self, request, pk):
@@ -415,7 +416,7 @@ class BankTransactionCSVImportView(ReadOnlyUserMixin, View):
         return redirect("accounting:bankaccount_register", pk=account.pk)
 
 
-class BankTransactionLinkPaymentView(ReadOnlyUserMixin, View):
+class BankTransactionLinkPaymentView(LoginRequiredMixin, ReadOnlyUserMixin, View):
     template_name = "accounting/banktxn_link_payment.html"
 
     def get(self, request, txn_id):
@@ -447,7 +448,7 @@ class BankTransactionLinkPaymentView(ReadOnlyUserMixin, View):
         return redirect("accounting:bankaccount_register", pk=txn.bank_account_id)
 
 
-class BankTransactionMarkOwnerEquityView(ReadOnlyUserMixin, View):
+class BankTransactionMarkOwnerEquityView(LoginRequiredMixin, ReadOnlyUserMixin, View):
     template_name = "accounting/banktxn_mark_owner_equity.html"
 
     def get(self, request, txn_id):
@@ -601,7 +602,7 @@ def banktransaction_match_transfer(request, pk):
     )
 
 
-class BatchMatchExpensesView(ReadOnlyUserMixin, FilterPersistenceMixin, TemplateView):
+class BatchMatchExpensesView(LoginRequiredMixin, ReadOnlyUserMixin, FilterPersistenceMixin, TemplateView):
     """
     Batch matching view for expense transactions.
     Shows all unmatched withdrawals and allows selecting an existing expense
@@ -822,7 +823,7 @@ class BatchMatchExpensesView(ReadOnlyUserMixin, FilterPersistenceMixin, Template
         return redirect(request.get_full_path())
 
 
-class BatchMatchPaymentsView(ReadOnlyUserMixin, FilterPersistenceMixin, TemplateView):
+class BatchMatchPaymentsView(LoginRequiredMixin, ReadOnlyUserMixin, FilterPersistenceMixin, TemplateView):
     """
     Batch matching view for payment transactions.
     Shows all unmatched deposits and allows selecting an existing payment
