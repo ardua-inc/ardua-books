@@ -3,6 +3,8 @@
 Ardua Books is a lightweight billing, invoicing, and accounting system designed for an independent consultant or small consulting firm.
 
 ---
+## License
+MIT License © 2026 Ardua, Inc.
 
 ## Features
 
