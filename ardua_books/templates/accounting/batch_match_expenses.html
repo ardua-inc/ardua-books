@@ -6,8 +6,9 @@
 
 <h2>Match Expenses - {{ bank_account.institution }}</h2>
 
-<div class="mb-3">
+<div class="mb-3 d-flex gap-2">
     <a href="{% url 'accounting:bankaccount_register' bank_account.pk %}" class="btn btn-secondary btn-sm">Back to Register</a>
+    <a href="{% url 'accounting:transactionrule_list' %}" class="btn btn-outline-secondary btn-sm">Manage Rules</a>
 </div>
 
 <form method="get" class="register-filters card" id="filterForm">
@@ -96,6 +97,9 @@
                 </td>
                 <td class="category-cell">
                     {{ form.category }}
+                    {% if data.suggested_category %}
+                    <div class="rule-badge">rule: {{ data.suggested_category.name }}</div>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -224,6 +228,12 @@
 .match-cell,
 .category-cell {
     min-width: 280px;
+}
+
+.rule-badge {
+    font-size: 0.75rem;
+    color: #6366f1;
+    margin-top: 2px;
 }
 
 .match-cell select,

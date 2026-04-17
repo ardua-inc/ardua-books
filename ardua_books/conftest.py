@@ -28,6 +28,10 @@ from accounting.models import (
     Payment,
     PaymentApplication,
     PaymentMethod,
+    BankAccount,
+    BankAccountType,
+    BankTransaction,
+    TransactionRule,
 )
 
 User = get_user_model()
@@ -166,6 +170,41 @@ class PaymentFactory(DjangoModelFactory):
     method = PaymentMethod.CHECK
     memo = factory.Sequence(lambda n: f"Payment {n}")
     unapplied_amount = Decimal("0.00")
+
+
+class BankAccountFactory(DjangoModelFactory):
+    class Meta:
+        model = BankAccount
+
+    account = factory.SubFactory(ChartOfAccountFactory)
+    type = BankAccountType.CHECKING
+    institution = factory.Sequence(lambda n: f"Test Bank {n}")
+    account_number_masked = "****1234"
+    opening_balance = Decimal("0.00")
+
+
+class BankTransactionFactory(DjangoModelFactory):
+    class Meta:
+        model = BankTransaction
+
+    bank_account = factory.SubFactory(BankAccountFactory)
+    date = factory.LazyFunction(date.today)
+    description = factory.Sequence(lambda n: f"TXN {n}")
+    amount = Decimal("-100.00")
+
+
+class TransactionRuleFactory(DjangoModelFactory):
+    class Meta:
+        model = TransactionRule
+
+    name = factory.Sequence(lambda n: f"Rule {n}")
+    description_contains = factory.Sequence(lambda n: f"vendor{n}")
+    category = factory.SubFactory(
+        ExpenseCategoryFactory,
+        account=factory.SubFactory(ChartOfAccountFactory),
+    )
+    priority = 0
+    is_active = True
 
 
 # =============================================================================

@@ -61,6 +61,10 @@ from accounting.views.bank_views import (
     banktransaction_match_transfer,
     BatchMatchExpensesView,
     BatchMatchPaymentsView,
+    TransactionRuleListView,
+    TransactionRuleCreateView,
+    TransactionRuleUpdateView,
+    TransactionRuleDeleteView,
 )
 
 __all__ = [
@@ -90,6 +94,10 @@ __all__ = [
     "banktransaction_match_transfer",
     "BatchMatchExpensesView",
     "BatchMatchPaymentsView",
+    "TransactionRuleListView",
+    "TransactionRuleCreateView",
+    "TransactionRuleUpdateView",
+    "TransactionRuleDeleteView",
     # Report views
     "ReportsHomeView",
     "TrialBalanceView",

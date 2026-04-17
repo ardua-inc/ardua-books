@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Delete Rule</h2>
+
+<p>Delete rule <strong>{{ object.name }}</strong> (matches <code>{{ object.description_contains }}</code> → {{ object.category.name }})?</p>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">Delete</button>
+        <a href="{% url 'accounting:transactionrule_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

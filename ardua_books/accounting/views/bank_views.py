@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.views import View
-from django.views.generic import ListView, DetailView, FormView, TemplateView
+from django.views.generic import ListView, DetailView, FormView, TemplateView, CreateView, UpdateView, DeleteView
 
 from accounting.forms import (
     BankTransactionForm,
@@ -26,6 +26,7 @@ from accounting.forms import (
     BankTransactionMatchTransferForm,
     ExpenseMatchFormSet,
     PaymentMatchFormSet,
+    TransactionRuleForm,
 )
 from accounting.models import (
     ChartOfAccount,
@@ -33,6 +34,7 @@ from accounting.models import (
     BankAccount,
     BankTransaction,
     BankImportProfile,
+    TransactionRule,
 )
 from accounting.services.banking import BankAccountService, BankTransactionService
 from accounting.services.importing import normalize_amount
@@ -717,15 +719,20 @@ class BatchMatchExpensesView(LoginRequiredMixin, ReadOnlyUserMixin, FilterPersis
                 label = f"{exp.expense_date} | {exp.category.name} | {client_name} | ${exp.amount}"
                 expense_choices.append((str(exp.id), label))
 
+            suggested_category = BankTransactionService.suggest_category(txn)
             form_data.append({
                 "txn": txn,
                 "expense_choices": expense_choices,
                 "has_matches": len(expense_choices) > 1,
+                "suggested_category": suggested_category,
             })
 
-        # Build formset with initial data
+        # Build formset with initial data (pre-select suggested category when a rule matches)
         initial = [
-            {"transaction_id": item["txn"].id}
+            {
+                "transaction_id": item["txn"].id,
+                "category": item["suggested_category"].pk if item["suggested_category"] else None,
+            }
             for item in form_data
         ]
         formset = ExpenseMatchFormSet(initial=initial, prefix="expenses")
@@ -1020,3 +1027,42 @@ class BatchMatchPaymentsView(LoginRequiredMixin, ReadOnlyUserMixin, FilterPersis
 
         # Redirect back to the same page with filters preserved
         return redirect(request.get_full_path())
+
+# ============================================================
+# Transaction Rule CRUD
+# ============================================================
+
+class TransactionRuleListView(LoginRequiredMixin, ListView):
+    model = TransactionRule
+    template_name = "accounting/transactionrule_list.html"
+    context_object_name = "rules"
+
+
+class TransactionRuleCreateView(LoginRequiredMixin, ReadOnlyUserMixin, CreateView):
+    model = TransactionRule
+    form_class = TransactionRuleForm
+    template_name = "accounting/transactionrule_form.html"
+    success_url = reverse_lazy("accounting:transactionrule_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["form_title"] = "New Rule"
+        return ctx
+
+
+class TransactionRuleUpdateView(LoginRequiredMixin, ReadOnlyUserMixin, UpdateView):
+    model = TransactionRule
+    form_class = TransactionRuleForm
+    template_name = "accounting/transactionrule_form.html"
+    success_url = reverse_lazy("accounting:transactionrule_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["form_title"] = f"Edit Rule: {self.object.name}"
+        return ctx
+
+
+class TransactionRuleDeleteView(LoginRequiredMixin, ReadOnlyUserMixin, DeleteView):
+    model = TransactionRule
+    template_name = "accounting/transactionrule_confirm_delete.html"
+    success_url = reverse_lazy("accounting:transactionrule_list")

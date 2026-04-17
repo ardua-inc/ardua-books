@@ -368,3 +368,43 @@ class BankImportProfile(models.Model):
     def __str__(self):
         return f"Import profile for {self.bank_account}"
 
+
+# ============================================================
+# Transaction Categorization Rules
+# ============================================================
+
+class TransactionRule(models.Model):
+    """
+    Matches unmatched bank transactions by description substring and suggests
+    an expense category in the batch-match UI. Higher priority rules are checked first.
+    """
+    name = models.CharField(max_length=100)
+    description_contains = models.CharField(
+        max_length=200,
+        help_text="Case-insensitive substring to match against transaction description.",
+    )
+    bank_account = models.ForeignKey(
+        BankAccount,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="transaction_rules",
+        help_text="Leave blank to match transactions from any bank account.",
+    )
+    category = models.ForeignKey(
+        "billing.ExpenseCategory",
+        on_delete=models.PROTECT,
+        related_name="transaction_rules",
+    )
+    priority = models.IntegerField(
+        default=0,
+        help_text="Higher values are evaluated first.",
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-priority", "name"]
+
+    def __str__(self):
+        scope = f" [{self.bank_account}]" if self.bank_account_id else ""
+        return f"{self.name}{scope} → {self.category.name}"

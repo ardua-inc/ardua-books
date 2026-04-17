@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'accounting:transactionrule_list' %}" class="btn btn-secondary btn-sm">← Back to Rules</a>
+</div>
+
+<h2>{{ form_title }}</h2>
+
+<form method="post" class="mt-3" style="max-width: 600px;">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+        {{ form.name }}
+        <div class="form-text">A short label for this rule, e.g. "AWS charges".</div>
+        {% if form.name.errors %}<div class="text-danger">{{ form.name.errors }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="{{ form.description_contains.id_for_label }}" class="form-label">Description Contains</label>
+        {{ form.description_contains }}
+        <div class="form-text">Case-insensitive substring to match against the transaction description.</div>
+        {% if form.description_contains.errors %}<div class="text-danger">{{ form.description_contains.errors }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="{{ form.category.id_for_label }}" class="form-label">Category</label>
+        {{ form.category }}
+        <div class="form-text">Expense category to pre-select when this rule matches.</div>
+        {% if form.category.errors %}<div class="text-danger">{{ form.category.errors }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="{{ form.bank_account.id_for_label }}" class="form-label">Bank Account <span class="text-muted">(optional)</span></label>
+        {{ form.bank_account }}
+        <div class="form-text">Leave blank to match transactions from any bank account.</div>
+        {% if form.bank_account.errors %}<div class="text-danger">{{ form.bank_account.errors }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label for="{{ form.priority.id_for_label }}" class="form-label">Priority</label>
+        {{ form.priority }}
+        <div class="form-text">Higher values are checked first. Use this to break ties when multiple rules could match.</div>
+        {% if form.priority.errors %}<div class="text-danger">{{ form.priority.errors }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3 form-check">
+        {{ form.is_active }}
+        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Active</label>
+        {% if form.is_active.errors %}<div class="text-danger">{{ form.is_active.errors }}</div>{% endif %}
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Save Rule</button>
+        <a href="{% url 'accounting:transactionrule_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

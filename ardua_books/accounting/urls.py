@@ -30,6 +30,10 @@ from .views import (
     ClientBalanceSummaryView,
     AccountDrilldownView,
     BankReconciliationScheduleView,
+    TransactionRuleListView,
+    TransactionRuleCreateView,
+    TransactionRuleUpdateView,
+    TransactionRuleDeleteView,
     # Report exports
     trial_balance_print,
     trial_balance_pdf,
@@ -157,5 +161,11 @@ urlpatterns = [
         BatchMatchPaymentsView.as_view(),
         name="batch_match_payments",
     ),
+
+    # TRANSACTION RULES
+    path("transaction-rules/", TransactionRuleListView.as_view(), name="transactionrule_list"),
+    path("transaction-rules/new/", TransactionRuleCreateView.as_view(), name="transactionrule_create"),
+    path("transaction-rules/<int:pk>/edit/", TransactionRuleUpdateView.as_view(), name="transactionrule_edit"),
+    path("transaction-rules/<int:pk>/delete/", TransactionRuleDeleteView.as_view(), name="transactionrule_delete"),
 ]
 

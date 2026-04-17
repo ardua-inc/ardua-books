@@ -1,7 +1,7 @@
 
 from django import forms
 from django.forms import formset_factory
-from .models import Payment, PaymentMethod, BankAccountType, ChartOfAccount, AccountType
+from .models import Payment, PaymentMethod, BankAccountType, ChartOfAccount, AccountType, TransactionRule
 from billing.models import Client, Invoice, Expense
 
 
@@ -412,3 +412,24 @@ PaymentMatchFormSet = formset_factory(
     PaymentMatchRowForm,
     extra=0,
 )
+
+
+class TransactionRuleForm(forms.ModelForm):
+    class Meta:
+        model = TransactionRule
+        fields = ["name", "description_contains", "bank_account", "category", "priority", "is_active"]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-control"}),
+            "description_contains": forms.TextInput(attrs={"class": "form-control"}),
+            "bank_account": forms.Select(attrs={"class": "form-select"}),
+            "category": forms.Select(attrs={"class": "form-select"}),
+            "priority": forms.NumberInput(attrs={"class": "form-control"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        from billing.models import ExpenseCategory
+        super().__init__(*args, **kwargs)
+        self.fields["category"].queryset = (
+            ExpenseCategory.objects.filter(account__isnull=False).order_by("name")
+        )

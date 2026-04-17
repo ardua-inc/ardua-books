@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Transaction Rules</h2>
+    <a href="{% url 'accounting:transactionrule_create' %}" class="btn btn-primary btn-sm">+ New Rule</a>
+</div>
+
+<p class="text-muted">
+    Rules match unmatched bank transactions by description and pre-select a category in the
+    <strong>Or Create New</strong> column when matching expenses. Higher-priority rules are checked first.
+</p>
+
+{% if rules %}
+<table class="table table-striped table-bordered">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description Contains</th>
+            <th>Bank Account</th>
+            <th>Category</th>
+            <th class="text-center">Priority</th>
+            <th class="text-center">Active</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for rule in rules %}
+        <tr {% if not rule.is_active %}class="text-muted"{% endif %}>
+            <td>{{ rule.name }}</td>
+            <td><code>{{ rule.description_contains }}</code></td>
+            <td>{{ rule.bank_account|default:"Any" }}</td>
+            <td>{{ rule.category.name }}</td>
+            <td class="text-center">{{ rule.priority }}</td>
+            <td class="text-center">{% if rule.is_active %}✓{% else %}—{% endif %}</td>
+            <td class="text-end">
+                <a href="{% url 'accounting:transactionrule_edit' rule.pk %}" class="btn btn-sm btn-secondary">Edit</a>
+                <a href="{% url 'accounting:transactionrule_delete' rule.pk %}" class="btn btn-sm btn-danger">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-info">
+    No rules yet. <a href="{% url 'accounting:transactionrule_create' %}">Create your first rule.</a>
+</div>
+{% endif %}
+{% endblock %}

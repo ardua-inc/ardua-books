@@ -11,6 +11,7 @@ from accounting.models import (
     JournalEntry,
     JournalLine,
     Payment,
+    TransactionRule,
 )
 
 from billing.models import Invoice
@@ -541,3 +542,24 @@ class BankTransactionService:
         txn_to.save(update_fields=["journal_entry", "transfer_pair", "offset_account"])
 
         return je
+
+    @staticmethod
+    def suggest_category(txn):
+        """
+        Return the highest-priority matching TransactionRule's category for txn, or None.
+        Rules are pre-ordered by (-priority, name).
+        """
+        from billing.models import ExpenseCategory
+
+        rules = (
+            TransactionRule.objects
+            .filter(is_active=True)
+            .select_related("category__account")
+        )
+        desc_lower = txn.description.lower()
+        for rule in rules:
+            if rule.bank_account_id and rule.bank_account_id != txn.bank_account_id:
+                continue
+            if rule.description_contains.lower() in desc_lower:
+                return rule.category
+        return None
