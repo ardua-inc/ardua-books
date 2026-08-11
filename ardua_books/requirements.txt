@@ -1,33 +1,63 @@
+# Single source of truth for Python dependencies.
+#
+# This is the file the Docker image installs (see Dockerfile) and therefore the
+# file that defines production. Do not add a second requirements.txt elsewhere
+# in the repo -- a root-level copy previously existed and drifted out of sync
+# with this one, pinning a different Django.
+#
+# Install for local development from the repo root:
+#     pip install -r ardua_books/requirements.txt
+
+# --- Framework ---
+# Pinned to the 5.2 LTS series. NOTE: this line previously read
+# "Django==5.0,<6.0", which pip reads as "==5.0 AND <6.0" -- an exact pin to
+# 5.0, not a range. That shipped end-of-life Django 5.0 to production.
+Django>=5.2,<5.3
 asgiref==3.11.0
-black==25.11.0
-brotli==1.2.0
-cffi==2.0.0
-click==8.3.1
-cssselect2==0.8.0
-Django==5.0,<6.0
+sqlparse==0.5.3
+
+# --- Serving ---
 gunicorn>=21.2,<22.0
+whitenoise>=6.6,<7
+psycopg[binary]
+
+# Loads ardua_books/.env for local development (manage.py, wsgi.py). Both
+# guard the import with try/except ImportError, so a missing python-dotenv
+# fails silently rather than loudly -- it was absent from this file while
+# being listed in the old root requirements.txt. In Docker the variables come
+# from docker-compose's env_file instead, which is why nothing broke.
+python-dotenv
+
+# --- Authentication / Google SSO ---
+# The [socialaccount] extra is required: from allauth 65.x onward, requests /
+# oauthlib / pyjwt moved out of the base install and behind this extra, so a
+# bare "django-allauth" would break the Google SSO flow at runtime.
+django-allauth[socialaccount]==0.61.1
+
+# --- PDF and image rendering (invoices, receipts) ---
+weasyprint==66.0
+pydyf==0.11.0
+pypdf==6.4.0
+pillow==12.0.0
 fonttools==4.60.1
+pyphen==0.17.2
+cssselect2==0.8.0
+tinycss2==1.5.1
+tinyhtml5==2.0.0
+webencodings==0.5.1
+brotli==1.2.0
+zopfli==0.4.0
+cffi==2.0.0
+pycparser==2.23
+
+# --- Development and test tooling ---
+black==25.11.0
+click==8.3.1
 mypy_extensions==1.1.0
 packaging==25.0
 pathspec==0.12.1
-pillow==12.0.0
 platformdirs==4.5.0
-pycparser==2.23
-pydyf==0.11.0
-pypdf==6.4.0
-pyphen==0.17.2
 pytokens==0.3.0
-django-allauth==0.61.1
-psycopg[binary]
-sqlparse==0.5.3
-tinycss2==1.5.1
-tinyhtml5==2.0.0
-weasyprint==66.0
-webencodings==0.5.1
-whitenoise>=6.6,<7
-zopfli==0.4.0
-
-# Testing
 pytest>=8.0
 pytest-django>=4.5
 pytest-cov>=4.0

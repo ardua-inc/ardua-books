@@ -13,6 +13,25 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 
+
+def _env_flag(name, default):
+    """Read a boolean setting from the environment.
+
+    Accepts 1/true/yes/on and 0/false/no/off, case-insensitively. An unset or
+    unrecognised value falls back to `default`, so a typo in .env can never
+    silently flip a security-relevant setting to the unsafe side.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 # Global date format
 DATE_FORMAT = "m/d/Y"
 USE_L10N = False
@@ -28,13 +47,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
+# Defaults to False so that a deployment with no DJANGO_DEBUG in its .env is
+# safe. Local development must opt in explicitly with DJANGO_DEBUG=True.
+DEBUG = _env_flag("DJANGO_DEBUG", False)
 
 # Application version
 # VERSION: Manually updated semantic version (update when releasing)
 # APP_VERSION: Git commit SHA (auto-set during Docker build)
 # APP_COMMIT_DATE: Git commit timestamp (auto-set during Docker build)
-VERSION = "3.3.0"
+VERSION = "3.3.1"
 APP_VERSION = os.getenv("APP_VERSION", "dev")
 APP_COMMIT_DATE = os.getenv("APP_COMMIT_DATE", "")
 
@@ -184,7 +205,7 @@ EMAIL_HOST = os.getenv('EMAIL_HOST')
 if EMAIL_HOST:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-    EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+    EMAIL_USE_TLS = _env_flag('EMAIL_USE_TLS', True)
     EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
     EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
     DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@ardua.com')
@@ -249,9 +270,25 @@ SITE_ID = 1
 # This ensures allauth builds https:// callback URLs for OAuth.
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.getenv('ACCOUNT_DEFAULT_HTTP_PROTOCOL', 'https')
 
+# Log in by email rather than username.
+# ACCOUNT_LOGIN_METHODS is the modern (allauth >= 64.1) spelling;
+# ACCOUNT_AUTHENTICATION_METHOD is the pre-64.1 spelling and is still what the
+# pinned 0.61.1 reads. Both are set so this behaves identically before and
+# after the allauth upgrade -- LOGIN_METHODS wins wherever it is understood.
+#
+# On 65.x this makes `manage.py check` emit a deprecation notice for
+# ACCOUNT_AUTHENTICATION_METHOD. That is expected and cosmetic; dropping the
+# line instead would silently revert production (still on 0.61.1) to
+# username-based login. Remove it as part of the allauth upgrade.
 ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_ALLOW_REGISTRATION = False
+
+# Accounts are provisioned by an administrator; there is no self-service
+# registration. Enforced by the adapter below -- allauth has no
+# "ACCOUNT_ALLOW_REGISTRATION" setting, so a bare flag here would be a no-op.
+ACCOUNT_ADAPTER = 'ardua_books.adapters.NoSignupAccountAdapter'
+
 SOCIALACCOUNT_AUTO_SIGNUP = False
 SOCIALACCOUNT_ADAPTER = 'ardua_books.adapters.RestrictToExistingUserAdapter'
 

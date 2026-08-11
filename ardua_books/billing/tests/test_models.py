@@ -145,8 +145,13 @@ class TestExpense:
 # =============================================================================
 
 class TestInvoice:
+    # Numbering is derived from the highest existing invoice_number by
+    # Invoice._generate_next_invoice_number(). These tests previously asserted
+    # on Invoice.sequence, which commit 108053e stopped assigning when it
+    # replaced the sequence-based scheme; the field is now vestigial.
+
     def test_invoice_auto_number_generation(self, db):
-        """Test that invoice numbers are auto-generated."""
+        """A blank invoice_number is filled in on save."""
         client = ClientFactory()
         invoice = Invoice.objects.create(
             client=client,
@@ -154,16 +159,33 @@ class TestInvoice:
             due_date=date.today() + timedelta(days=30),
         )
 
-        assert invoice.invoice_number is not None
-        assert len(invoice.invoice_number) > 0
-        assert invoice.sequence > 0
+        assert invoice.invoice_number
+        assert invoice.invoice_number.isdigit()
 
-    def test_invoice_sequence_increments(self, db):
-        """Test that invoice sequence numbers increment."""
+    def test_explicit_invoice_number_is_preserved(self, db):
+        """An invoice_number supplied by the caller is never overwritten.
+
+        Guards the `if not self.invoice_number` branch in Invoice.save(), which
+        is what allows historical numbers to be carried in from the QuickBooks
+        import. The increment test below also depends on it holding.
+        """
+        client = ClientFactory()
+        invoice = Invoice.objects.create(
+            client=client,
+            invoice_number="00668",
+            issue_date=date.today(),
+            due_date=date.today() + timedelta(days=30),
+        )
+
+        assert invoice.invoice_number == "00668"
+
+    def test_invoice_number_increments(self, db):
+        """Each new invoice takes the next number above the highest existing one."""
         client = ClientFactory()
 
         invoice1 = Invoice.objects.create(
             client=client,
+            invoice_number="41",
             issue_date=date.today(),
             due_date=date.today() + timedelta(days=30),
             status=InvoiceStatus.ISSUED,  # Avoid draft conflict
@@ -175,7 +197,11 @@ class TestInvoice:
             due_date=date.today() + timedelta(days=30),
         )
 
-        assert invoice2.sequence == invoice1.sequence + 1
+        # Seeded explicitly rather than relying on the first invoice's
+        # generated value, so the assertion pins the actual arithmetic instead
+        # of passing for any two consecutive numbers.
+        assert invoice1.invoice_number == "41"
+        assert invoice2.invoice_number == "42"
 
     def test_one_draft_per_client(self, db):
         """Test that only one draft invoice per client is allowed."""

@@ -47,10 +47,10 @@ All list views support:
 | Component | Technology |
 |-----------|------------|
 | Language | Python 3.11+ |
-| Framework | Django 5.x |
+| Framework | Django 5.2 LTS |
 | Database | SQLite (dev), PostgreSQL (production) |
 | PDF Generation | WeasyPrint + pypdf |
-| Authentication | Django sessions + CSRF |
+| Authentication | Django sessions + CSRF, Google SSO via django-allauth |
 | Static Files | WhiteNoise |
 | Deployment | Docker + Gunicorn + NGINX |
 
@@ -98,9 +98,14 @@ ardua_books/
 │
 ├── docker_compose.yml
 ├── Dockerfile
-├── requirements.txt
+├── requirements.txt          # Single source of truth for dependencies
 └── manage.py
 ```
+
+> **Dependencies:** `ardua_books/requirements.txt` is the only requirements
+> file in this repo, and it is what the Docker image installs. A second copy
+> previously sat at the repo root and drifted — pinning a different Django
+> than the one that actually shipped. Don't reintroduce one.
 
 ---
 
@@ -117,10 +122,23 @@ source venv/bin/activate
 
 ```bash
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r ardua_books/requirements.txt
 ```
 
-### 3. Apply migrations and create superuser
+### 3. Configure environment
+
+Create `ardua_books/.env`. `DJANGO_DEBUG` defaults to **False**, so local
+development must opt in explicitly:
+
+```bash
+DJANGO_DEBUG=True
+DJANGO_SECRET_KEY=any-long-random-string-for-local-use
+```
+
+Leaving `DJANGO_DEBUG` unset anywhere is safe by design — it fails closed
+rather than exposing Django's debug pages.
+
+### 4. Apply migrations and create superuser
 
 ```bash
 cd ardua_books
@@ -128,11 +146,16 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 4. Run development server
+### 5. Run development server
 
 ```bash
 python manage.py runserver 8000
 ```
+
+> **Accounts are administrator-provisioned.** Self-service registration is
+> closed (`NoSignupAccountAdapter`), and Google SSO only admits addresses that
+> already match an existing user. Create users with `createsuperuser` or via
+> the Django admin.
 
 **URLs:**
 - Main app: http://localhost:8000/
@@ -270,7 +293,7 @@ Create a `.env` file:
 
 ```bash
 DJANGO_SECRET_KEY=your-secure-secret-key
-DJANGO_DEBUG=False
+DJANGO_DEBUG=False          # default; never set this to True in production
 DJANGO_ALLOWED_HOSTS=your-domain.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://your-domain.com
 
@@ -385,6 +408,9 @@ pytest
 
 # Run with coverage
 pytest --cov=billing --cov=accounting
+
+# Configuration guards (signup closed, login method, URL mounting)
+pytest tests/
 
 # Run specific test file
 pytest billing/tests/test_models.py

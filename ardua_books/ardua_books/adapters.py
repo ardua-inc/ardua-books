@@ -1,4 +1,5 @@
 import logging
+from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.exceptions import ImmediateHttpResponse
 from django.contrib import messages
@@ -7,6 +8,25 @@ from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+class NoSignupAccountAdapter(DefaultAccountAdapter):
+    """
+    Closes self-service registration for local (email/password) accounts.
+
+    The full allauth URLconf is mounted in ardua_books/urls.py because the
+    Google SSO flow needs it, and that also exposes /accounts/signup/.
+    allauth's default adapter returns True from is_open_for_signup(), so
+    without this the signup form is live. Accounts are created by an
+    administrator instead.
+
+    This covers the local signup form only; the Google SSO path is restricted
+    separately by RestrictToExistingUserAdapter below.
+    """
+
+    def is_open_for_signup(self, request):
+        return False
+
 
 class RestrictToExistingUserAdapter(DefaultSocialAccountAdapter):
     """
