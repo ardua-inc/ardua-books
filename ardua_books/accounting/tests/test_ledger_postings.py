@@ -1,12 +1,14 @@
 """
-Tests for the four ledger-posting bugs fixed in 3.3.4, and for the
-repair_ledger_postings command that fixes data posted before the fix.
+Tests for the ledger-posting bugs fixed in 3.3.4 and 3.3.5, and for the
+repair_ledger_postings command that fixes data posted before the fixes.
 
 1. Linking a deposit to a payment left the deposit's import JE in place and
    posted the payment to 1000 Cash: the money was counted twice.
 2. Payments credited AR 1200 while invoices debit AR 1100.
 3. A credit (refund) linked to an expense was posted as a charge.
 4. A "transfer" could pair two withdrawals.
+5. (3.3.5) Linking a payment re-dated the payment but not its JE.
+6. (3.3.5) "Mark as Owner Equity" called a service method that did not exist.
 
 The invariant behind most assertions: a bank account's register (opening
 balance + transaction amounts) equals its GL account's debits minus credits.
@@ -23,6 +25,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db.models import Sum
 from django.urls import reverse
+from django.utils import timezone
 
 from accounting import gl_codes
 from accounting.models import (
@@ -143,6 +146,11 @@ def txn_entries(txn):
         source_content_type=ContentType.objects.get_for_model(BankTransaction),
         source_object_id=txn.id,
     )
+
+
+def entry_date(je):
+    je.refresh_from_db()
+    return timezone.localdate(je.posted_at)
 
 
 def lines(je):
@@ -363,6 +371,143 @@ class TestTransfers:
         assert code_balance(gl_codes.OWNER_EQUITY) == 0
 
 
+# --- 3.3.5: payment entry dates --------------------------------------------------
+
+class TestPaymentEntryDate:
+    def test_payment_recorded_before_its_deposit_takes_the_deposit_date(self, checking):
+        txn = deposit(checking, "1397.41", when=date(2026, 1, 13))
+        payment = recorded_payment(ClientFactory(), "1397.41")  # dated 2026-01-10, posted then
+        payment_je = JournalEntry.objects.get(
+            source_content_type=ContentType.objects.get_for_model(Payment), source_object_id=payment.id
+        )
+        assert entry_date(payment_je) == date(2026, 1, 10)
+
+        BankTransactionService.link_existing_payment(txn, payment)
+
+        payment.refresh_from_db()
+        assert payment.date == date(2026, 1, 13)
+        assert entry_date(payment_je) == date(2026, 1, 13)
+
+    def test_unposted_payment_is_posted_on_the_deposit_date(self, checking):
+        txn = deposit(checking, "700.00", when=date(2026, 1, 26))
+        payment = Payment.objects.create(
+            client=ClientFactory(), date=date(2026, 1, 20), amount=D("700.00"),
+            method=PaymentMethod.CHECK, unapplied_amount=D("700.00"),
+        )
+
+        BankTransactionService.link_existing_payment(txn, payment)
+
+        txn.refresh_from_db()
+        assert entry_date(txn.journal_entry) == date(2026, 1, 26)
+
+
+# --- 3.3.5: Mark as Owner Equity --------------------------------------------------
+
+def posted_against(account, amount, offset_account, when=date(2026, 2, 3)):
+    """An unmatched transaction posted against a chosen offset."""
+    return BankTransactionService.post_transaction(
+        bank_account=account, date=when, description="UNCATEGORIZED",
+        amount=D(amount), offset_account=offset_account,
+    )
+
+
+class TestMarkAsOwnerEquity:
+    def test_deposit_is_reposted_as_a_contribution(self, checking, gl):
+        txn = posted_against(checking, "500.00", gl[gl_codes.REVENUE])
+        je_id = txn.journal_entry_id
+
+        BankTransactionService.mark_as_owner_equity(txn)
+
+        txn.refresh_from_db()
+        assert txn.offset_account.code == gl_codes.OWNER_EQUITY
+        assert txn.journal_entry_id == je_id  # rebuilt in place, not duplicated
+        assert lines(txn.journal_entry) == sorted([
+            (checking.account.code, D("500.00"), D("0")),
+            (gl_codes.OWNER_EQUITY, D("0"), D("500.00")),
+        ])
+        assert code_balance(gl_codes.REVENUE) == 0
+        assert register_equals_gl(checking)
+
+    def test_charge_is_reposted_as_a_draw(self, card, travel):
+        txn = posted_against(card, "-42.50", travel.account)
+
+        BankTransactionService.mark_as_owner_equity(txn)
+
+        txn.refresh_from_db()
+        assert lines(txn.journal_entry) == sorted([
+            (gl_codes.OWNER_EQUITY, D("42.50"), D("0")),
+            (card.account.code, D("0"), D("42.50")),
+        ])
+        assert balance(travel.account) == 0
+        assert register_equals_gl(card)
+
+    def test_transaction_without_an_entry_gets_one(self, checking, gl):
+        txn = posted_against(checking, "75.00", gl[gl_codes.REVENUE])
+        txn.journal_entry.delete()
+        txn.refresh_from_db()
+        assert not register_equals_gl(checking)
+
+        BankTransactionService.mark_as_owner_equity(txn)
+
+        txn.refresh_from_db()
+        assert txn.journal_entry.source_object == txn
+        assert entry_date(txn.journal_entry) == txn.date
+        assert register_equals_gl(checking)
+
+    def test_matched_transaction_is_refused_and_left_alone(self, card, travel):
+        txn = deposit(card, "-60.00", "DELTA AIR")
+        expense = Expense.objects.create(category=travel, amount=D("60.00"), billable=False)
+        BankTransactionService.link_expense(txn, expense)
+        txn.refresh_from_db()
+        before = lines(txn.journal_entry)
+
+        with pytest.raises(ValueError, match="only an unmatched transaction"):
+            BankTransactionService.mark_as_owner_equity(txn)
+
+        txn.refresh_from_db()
+        assert lines(txn.journal_entry) == before
+        assert txn.expense_id == expense.id
+
+    def test_entry_belonging_to_something_else_is_not_rebuilt(self, checking, gl):
+        txn = posted_against(checking, "90.00", gl[gl_codes.REVENUE])
+        other = posted_against(checking, "15.00", gl[gl_codes.REVENUE])
+        BankTransaction.objects.filter(pk=txn.pk).update(journal_entry=other.journal_entry)
+        txn.refresh_from_db()
+        before = lines(other.journal_entry)
+
+        with pytest.raises(ValueError, match="does not belong to bank transaction"):
+            BankTransactionService.mark_as_owner_equity(txn)
+        assert lines(other.journal_entry) == before
+
+    def test_mark_through_the_view(self, logged_in, checking, gl):
+        txn = posted_against(checking, "-250.00", gl[gl_codes.REVENUE])
+        url = reverse("accounting:banktransaction_mark_owner_equity", args=[txn.pk])
+
+        assert logged_in.get(url).status_code == 200
+        response = logged_in.post(url, follow=True)
+
+        assert "Transaction recorded as Owner Equity." in message_texts(response)
+        txn.refresh_from_db()
+        assert txn.offset_account.code == gl_codes.OWNER_EQUITY
+        assert code_balance(gl_codes.OWNER_EQUITY) == D("250.00")  # a draw
+        assert register_equals_gl(checking)
+
+    def test_view_reports_a_matched_transaction(self, logged_in, checking, card):
+        epay = deposit(checking, "-80.00", "CARD EPAY")
+        card_payment = deposit(card, "80.00", "PAYMENT THANK YOU")
+        BankTransactionService.match_transfer(epay, card_payment)
+
+        response = logged_in.post(
+            reverse("accounting:banktransaction_mark_owner_equity", args=[epay.pk]), follow=True
+        )
+
+        assert any(m.startswith("Could not mark as equity: This transaction is matched")
+                   for m in message_texts(response))
+        epay.refresh_from_db()
+        assert epay.transfer_pair_id == card_payment.id
+        assert register_equals_gl(checking) and register_equals_gl(card)
+
+
 # --- end to end: import through the view, then link through the view ------------
 
 class TestEndToEnd:
@@ -381,6 +526,20 @@ class TestEndToEnd:
         assert code_balance(gl_codes.CASH) == 0
         assert code_balance(gl_codes.OWNER_EQUITY) == 0
         assert register_equals_gl(checking)
+
+    def test_payment_entered_with_an_earlier_date_is_posted_on_the_deposit_date(self, logged_in, checking):
+        [txn] = import_csv(logged_in, checking, [("04/09/2025", "MOBILE DEPOSIT", "4875.00")])
+
+        logged_in.post(
+            reverse("accounting:payment_create_from_transaction", args=[txn.pk]),
+            {"client": ClientFactory().pk, "date": "2025-03-31", "amount": "4875.00",
+             "method": PaymentMethod.CHECK, "memo": "check dated 3/31"},
+            follow=True,
+        )
+
+        txn.refresh_from_db()
+        assert txn.payment.date == date(2025, 4, 9)
+        assert entry_date(txn.journal_entry) == date(2025, 4, 9)
 
     def test_import_deposit_then_link_existing_payment(self, logged_in, checking):
         [txn] = import_csv(logged_in, checking, [("01/26/2026", "MOBILE DEPOSIT", "700.00")])
@@ -444,6 +603,7 @@ def snapshot():
     """Every journal line and the fields the repair may change."""
     return (
         sorted(JournalLine.objects.values_list("id", "entry_id", "account_id", "debit", "credit")),
+        sorted(JournalEntry.objects.values_list("id", "posted_at")),
         sorted(BankTransaction.objects.values_list("id", "journal_entry_id", "transfer_pair_id", "offset_account_id")),
         sorted(Expense.objects.values_list("id", "amount")),
         sorted(ChartOfAccount.objects.values_list("id", "is_active")),
@@ -460,6 +620,7 @@ def broken_ledger(checking, card, other_card, travel, gl):
     payment_ct = ContentType.objects.get_for_model(Payment)
 
     # Bug 1 + 2: deposit keeps its import JE; payment JE is DR Cash / CR 1200.
+    # 3.3.5: the payment JE is dated before the deposit, as payments 1-6 were.
     invoice = issued_invoice(client, "4000.00")
     txn = deposit(checking, "4000.00", "MOBILE DEPOSIT")
     payment = Payment.objects.create(
@@ -468,7 +629,8 @@ def broken_ledger(checking, card, other_card, travel, gl):
     )
     PaymentApplication.objects.create(payment=payment, invoice=invoice, amount=D("4000.00"))
     je = JournalEntry.objects.create(
-        description="Payment received", source_content_type=payment_ct, source_object_id=payment.id
+        posted_at=date(2025, 12, 31),
+        description="Payment received", source_content_type=payment_ct, source_object_id=payment.id,
     )
     JournalLine.objects.create(entry=je, account=cash, debit=D("4000.00"), credit=0)
     JournalLine.objects.create(entry=je, account=ar_legacy, debit=0, credit=D("4000.00"))
@@ -521,6 +683,8 @@ class TestRepairCommand:
         assert "2. Accounts receivable: 1200 -> 1100: 2 change(s)" in output  # move + deactivate
         assert "3. Credits (refunds) linked to expenses: 2 change(s)" in output
         assert "4. Transfers that pair two withdrawals or two deposits: 3 change(s)" in output
+        assert "5. Payment entries dated differently from their deposit: 1 change(s)" in output
+        assert "posted_at 2025-12-31 -> 2026-01-13" in output
         assert "FAIL" not in output  # the predicted ledger reconciles
         assert f"a likely real counterpart is txn {broken_ledger['real_payment'].id}" in output
 
@@ -545,6 +709,7 @@ class TestRepairCommand:
         b["txn"].refresh_from_db()
         assert not txn_entries(b["txn"]).exists()
         assert b["txn"].journal_entry.source_object == b["payment"]
+        assert entry_date(b["txn"].journal_entry) == b["txn"].date
 
         b["expense"].refresh_from_db()
         assert b["expense"].amount == D("-20.06")
@@ -571,6 +736,7 @@ class TestRepairCommand:
 
         assert "differs from the deposit's 4000.00" in output
         assert "1. Payments linked to bank deposits: 0 change(s)" in output
+        assert "5. Payment entries dated differently from their deposit: 0 change(s)" in output
 
     def test_non_payment_line_on_1200_is_left_alone_and_1200_stays_active(self, broken_ledger, gl):
         je = JournalEntry.objects.create(description="Manual AR adjustment")

@@ -4,6 +4,13 @@ All notable changes to Ardua Books are recorded here. The canonical version
 number lives in `ardua_books/ardua_books/settings.py` (`VERSION`) and is
 surfaced by the `/about/` page.
 
+## [3.3.5] - 2026-11-01
+
+- "Mark as Owner Equity" in the bank register works. It called a service method that did not exist, so every use failed with "Could not mark as equity". It re-posts an unmatched transaction against Owner Equity 3000 (a deposit as a contribution, a withdrawal as a draw), rebuilding its journal entry in place, or creating one if it has none. A transaction matched to a payment, expense or transfer is refused, since its entry belongs to that match.
+- Linking a bank deposit to a payment dates the payment's journal entry on the deposit date, as it already did the payment itself. A payment entered before its deposit kept an entry dated on the earlier day, so dated reports showed the cash and the receivable settling in the wrong period (production: payments 1–6, by 5 to 31 days).
+- `repair_ledger_postings` gains step 5: re-date payment entries to their deposit's date. Balances do not change. Production dry run: 6 changes (payments 1–6), nothing else.
+- `BankTransactionService.create_import_entry` is the one place an unmatched transaction's journal entry is created (import, recategorize, and the repair's restore step).
+
 ## [3.3.4] - 2026-11-01
 
 - Linking a bank deposit to a client payment now leaves exactly one journal entry: the payment's, debiting the deposit's own GL account. Previously the deposit's import entry (DR bank / CR Owner Equity) stayed live and the payment debited 1000 Cash, so every linked receipt was counted twice (production: 12 payments, $19,600.86 in Cash that was really in Wells Fargo, Owner Equity overstated by the same). A payment recorded without a deposit still debits 1000 Cash (undeposited funds) until it is linked. A payment can no longer be linked to two deposits.

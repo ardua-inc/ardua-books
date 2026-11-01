@@ -1,5 +1,6 @@
 """
-Repair journal entries posted wrongly by the four ledger bugs fixed in 3.3.4.
+Repair journal entries posted wrongly by the ledger bugs fixed in 3.3.4 and
+3.3.5.
 
 Dry run by default: prints every change it would make and the trial balance
 and bank-register reconciliation before and after, and writes nothing. On
@@ -28,16 +29,22 @@ second run finds nothing to do:
 4. Transfers that paired two withdrawals (or two deposits). Unpair them and
    restore each one's import JE against Owner Equity, the importer's default
    offset, so they can be matched correctly by hand.
+5. Payment entries dated differently from their deposit. Linking a payment
+   moved the payment's date to the deposit's but left its JE on the old date
+   (fixed in 3.3.5). Re-date the JE to the deposit's date; balances do not
+   change, only which period they fall in.
 """
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 from django.db.models import Sum
+from django.utils import timezone
 
 from accounting import gl_codes
 from accounting.models import (
@@ -167,17 +174,9 @@ class RestoreImportEntry:
 
     def apply(self):
         txn = BankTransaction.objects.select_related("bank_account__account").get(pk=self.txn.pk)
-        je = JournalEntry.objects.create(
-            posted_at=txn.date,
-            description=f"Bank txn: {txn.description}",
-            source_content_type=ContentType.objects.get_for_model(BankTransaction),
-            source_object_id=txn.id,
-        )
-        BankTransactionService.create_lines(je, self.lines())
-        txn.journal_entry = je
-        txn.offset_account = self.offset_account
         txn.transfer_pair = None
-        txn.save(update_fields=["journal_entry", "offset_account", "transfer_pair"])
+        txn.save(update_fields=["transfer_pair"])
+        BankTransactionService.create_import_entry(txn, self.offset_account)
 
 
 @dataclass
@@ -192,6 +191,8 @@ class SetField:
 
     def describe(self):
         before = getattr(self.obj, self.field_name)
+        if isinstance(before, datetime):
+            before = timezone.localdate(before)
         return (
             f"{type(self.obj).__name__} {self.obj.pk}: {self.field_name} "
             f"{before} -> {self.value}. {self.reason}"
@@ -211,13 +212,14 @@ class Step:
     notes: list = field(default_factory=list)
 
 
-def plan_payment_deposits():
-    """Bug 1: payment-linked deposits counted twice, payment debited Cash."""
-    step = Step("1. Payments linked to bank deposits")
-    ct_txn = ContentType.objects.get_for_model(BankTransaction)
+def payment_deposits():
+    """
+    Yield (txn, payment, payment_je, label, skip_reason) for every bank
+    transaction linked to a payment. skip_reason is None when the pair is
+    unambiguous enough to repair: one deposit per payment, equal amounts, and
+    a payment JE to repair.
+    """
     ct_payment = ContentType.objects.get_for_model(Payment)
-    cash = ChartOfAccount.objects.filter(code=gl_codes.CASH).first()
-
     txns = (
         BankTransaction.objects.filter(payment__isnull=False)
         .select_related("payment", "bank_account__account")
@@ -226,19 +228,29 @@ def plan_payment_deposits():
     for txn in txns:
         payment = txn.payment
         label = f"payment {payment.id} / bank txn {txn.id}"
-        if payment.bank_transactions.count() != 1:
-            step.warnings.append(f"Skipped {label}: the payment is linked to more than one bank transaction.")
-            continue
-        if payment.amount != txn.amount:
-            step.warnings.append(
-                f"Skipped {label}: payment amount {payment.amount} differs from the deposit's {txn.amount}."
-            )
-            continue
         payment_je = JournalEntry.objects.filter(
             source_content_type=ct_payment, source_object_id=payment.id
         ).first()
-        if payment_je is None:
-            step.warnings.append(f"Skipped {label}: the payment has no journal entry.")
+        if payment.bank_transactions.count() != 1:
+            reason = "the payment is linked to more than one bank transaction."
+        elif payment.amount != txn.amount:
+            reason = f"payment amount {payment.amount} differs from the deposit's {txn.amount}."
+        elif payment_je is None:
+            reason = "the payment has no journal entry."
+        else:
+            reason = None
+        yield txn, payment, payment_je, label, reason
+
+
+def plan_payment_deposits():
+    """Bug 1: payment-linked deposits counted twice, payment debited Cash."""
+    step = Step("1. Payments linked to bank deposits")
+    ct_txn = ContentType.objects.get_for_model(BankTransaction)
+    cash = ChartOfAccount.objects.filter(code=gl_codes.CASH).first()
+
+    for txn, payment, payment_je, label, skip_reason in payment_deposits():
+        if skip_reason:
+            step.warnings.append(f"Skipped {label}: {skip_reason}")
             continue
 
         for je in JournalEntry.objects.filter(source_content_type=ct_txn, source_object_id=txn.id).order_by("id"):
@@ -358,12 +370,26 @@ def plan_same_sign_transfers():
     return step
 
 
+def plan_payment_entry_dates():
+    """3.3.5: a payment JE kept its own date when linked to a later deposit."""
+    step = Step("5. Payment entries dated differently from their deposit")
+    for txn, payment, payment_je, label, skip_reason in payment_deposits():
+        if skip_reason:
+            continue  # step 1 warns about these
+        if timezone.localdate(payment_je.posted_at) != txn.date:
+            step.ops.append(
+                SetField(payment_je, "posted_at", txn.date, f"The entry records the deposit of {label}.")
+            )
+    return step
+
+
 def build_plan():
     return [
         plan_payment_deposits(),
         plan_receivables(),
         plan_credits_linked_to_expenses(),
         plan_same_sign_transfers(),
+        plan_payment_entry_dates(),
     ]
 
 

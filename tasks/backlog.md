@@ -20,10 +20,11 @@
 
 ## Ledger repair, after 3.3.4 is merged (2026-11-01)
 
-- [ ] **Back up production, then `repair_ledger_postings --apply`** (Jim). Dry run against production, read-only, 2026-11-01: 48 changes; Cash 19,600.86 → 0; AR on 1100 only, 4,740.83; Owner Equity −59,376.83 → −39,772.69; expenses −2,204.36; all four registers equal their GL accounts. Rehearsed `--apply` on a restored copy: matched the prediction, second run 0 changes, pages render.
-- [ ] **Then match the transfer by hand:** Wells Fargo txn 293 ↔ Marriott txn 488 ("Payment Thank You-Mobile", +1.64), and link Marriott txn 489 (Costco, −1.64) to an expense.
-- [ ] **`Mark as Owner Equity` is broken:** `BankTransactionMarkOwnerEquityView` calls `BankTransactionService.mark_as_owner_equity`, which does not exist; every use shows "Could not mark as equity: …".
-- [ ] **Payment JE dates:** linking a payment updates `payment.date` to the deposit date but not its JE's `posted_at`. Payments 1–6 (QuickBooks import) have JEs dated weeks before their deposits, which shifts AR/cash between periods in dated reports.
+- [x] **Back up production, then `repair_ledger_postings --apply`** (Jim). Done 2026-11-01: backup `/opt/ardua_books/manual-backups/ardua_books-pre-3.3.4-repair-20261101T220256Z.dump` (also in `s3://ardua-books-backups/manual/`); after apply, a re-run finds 0 changes. Dry run against production, read-only, 2026-11-01: 48 changes; Cash 19,600.86 → 0; AR on 1100 only, 4,740.83; Owner Equity −59,376.83 → −39,772.69; expenses −2,204.36; all four registers equal their GL accounts. Rehearsed `--apply` on a restored copy: matched the prediction, second run 0 changes, pages render.
+- [x] **Then match the transfer by hand:** done 2026-11-01 and verified (shared transfer JE, DR 1114 / CR 1112; Costco on 6900 Miscellaneous Expense). Wells Fargo txn 293 ↔ Marriott txn 488 ("Payment Thank You-Mobile", +1.64), and link Marriott txn 489 (Costco, −1.64) to an expense.
+- [x] Fixed in 3.3.5. **`Mark as Owner Equity` is broken:** `BankTransactionMarkOwnerEquityView` calls `BankTransactionService.mark_as_owner_equity`, which does not exist; every use shows "Could not mark as equity: …".
+- [ ] **After 3.3.5 deploys: `repair_ledger_postings --apply`** for step 5 (re-dates payments 1–6; dry run 2026-11-01: 6 changes, balances unchanged).
+- [x] Fixed in 3.3.5. **Payment JE dates:** linking a payment updates `payment.date` to the deposit date but not its JE's `posted_at`. Payments 1–6 (QuickBooks import) have JEs dated weeks before their deposits, which shifts AR/cash between periods in dated reports.
 
 ## Bank import data repair, after 3.3.3 is merged (2026-11-01)
 

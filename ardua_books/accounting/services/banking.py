@@ -195,23 +195,28 @@ class BankTransactionService:
             amount=Decimal(amount),
             offset_account=offset_account,
         )
+        BankTransactionService.create_import_entry(txn, offset_account)
+        return txn
 
-        # Build JE
+    @staticmethod
+    def create_import_entry(txn, offset_account):
+        """
+        Post an unmatched transaction against offset_account: create its JE
+        (see import_entry_lines) and point txn at it.
+        """
         je = JournalEntry.objects.create(
-            posted_at=date,
-            description=f"Bank txn: {description}",
+            posted_at=txn.date,
+            description=f"Bank txn: {txn.description}",
             source_content_type=ContentType.objects.get_for_model(BankTransaction),
             source_object_id=txn.id,
         )
-
         BankTransactionService.create_lines(
             je, BankTransactionService.import_entry_lines(txn, offset_account)
         )
-
         txn.journal_entry = je
-        txn.save(update_fields=["journal_entry"])
-
-        return txn
+        txn.offset_account = offset_account
+        txn.save(update_fields=["journal_entry", "offset_account"])
+        return je
 
     @staticmethod
     def import_entry_lines(txn, offset_account):
@@ -316,8 +321,8 @@ class BankTransactionService:
           • txn.payment is None
           • payment.amount == txn.amount
 
-        Also updates the payment date to match the bank transaction date,
-        since the bank statement date is authoritative.
+        Also updates the payment date, and its JE's date, to match the bank
+        transaction date, since the bank statement date is authoritative.
 
         Posting: the deposit and the payment are one receipt of money, so
         exactly one JE may remain -- the payment's, debiting the deposit's own
@@ -354,6 +359,10 @@ class BankTransactionService:
         deposit_account = txn.bank_account.account
         je = payment.post_to_accounting(deposit_account=deposit_account)
         je.lines.filter(account__code=gl_codes.CASH, debit__gt=0).update(account=deposit_account)
+        # A payment posted before it was linked carries its old date; the
+        # entry now records the deposit, so it takes the deposit's date too.
+        je.posted_at = txn.date
+        je.save(update_fields=["posted_at"])
 
         txn.payment = payment
         txn.journal_entry = je
@@ -373,13 +382,18 @@ class BankTransactionService:
         je = txn.journal_entry
         if je is None:
             return
+        BankTransactionService._check_import_entry(txn, je)
+        je.delete()
+        txn.journal_entry = None
+
+    @staticmethod
+    def _check_import_entry(txn, je):
+        """Raise unless je is the import JE post_transaction() made for txn."""
         if not (
             je.source_content_type_id == ContentType.objects.get_for_model(BankTransaction).id
             and je.source_object_id == txn.id
         ):
             raise ValueError(f"Journal entry {je.id} does not belong to bank transaction {txn.id}.")
-        je.delete()
-        txn.journal_entry = None
 
     # ----------------------------------------------------------------------
     # 5. CHANGE OFFSET ACCOUNT ON EXISTING TRANSACTION
@@ -388,12 +402,25 @@ class BankTransactionService:
     @transaction.atomic
     def retag_transaction(txn, new_offset_account):
         """
-        Retags (recategorizes) a posted bank transaction.
-        Requires rebuilding the JournalEntry lines.
-        """
-        je = txn.journal_entry
-        je.lines.all().delete()
+        Retags (recategorizes) an unmatched bank transaction: its JE is
+        rebuilt against new_offset_account, or created if it has none.
 
+        A matched transaction's JE belongs to its payment, expense or
+        transfer, so it is refused rather than rebuilt as an import entry.
+        """
+        if txn.is_matched:
+            raise ValueError(
+                "This transaction is matched to a payment, expense or transfer; "
+                "only an unmatched transaction can be recategorized."
+            )
+
+        je = txn.journal_entry
+        if je is None:
+            BankTransactionService.create_import_entry(txn, new_offset_account)
+            return txn
+
+        BankTransactionService._check_import_entry(txn, je)
+        je.lines.all().delete()
         BankTransactionService.create_lines(
             je, BankTransactionService.import_entry_lines(txn, new_offset_account)
         )
@@ -402,6 +429,16 @@ class BankTransactionService:
         txn.save(update_fields=["offset_account"])
 
         return txn
+
+    @staticmethod
+    def mark_as_owner_equity(txn):
+        """
+        Record an unmatched transaction as an owner contribution (deposit) or
+        draw (withdrawal): offset Owner Equity 3000.
+        """
+        return BankTransactionService.retag_transaction(
+            txn, gl_codes.gl_account(gl_codes.OWNER_EQUITY)
+        )
 
     # ----------------------------------------------------------------------
     # 6. LINK BANK TRANSACTION TO EXPENSE

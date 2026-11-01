@@ -1,3 +1,19 @@
+# Mark as Owner Equity + payment JE dates (3.3.5)
+
+Branch: fix/owner-equity-and-payment-dates (PR; main deploys to production)
+
+- [x] `mark_as_owner_equity`: retag to 3000; refuse matched transactions and JEs that belong to another record (guards in `retag_transaction`); create the JE if missing
+- [x] `create_import_entry`: one place for an unmatched transaction's JE (post_transaction, retag, repair restore)
+- [x] `link_existing_payment` dates the payment JE on the deposit date
+- [x] `repair_ledger_postings` step 5: re-date payment JEs (shares step 1's skip rules)
+- [x] Tests: service + view per bug, repair step; fail on main, pass on branch; full suite
+- [x] Dry run against production (books_readonly)
+- [x] Docs, CHANGELOG, VERSION 3.3.5
+
+## Review
+- Tests: 161 passed (10 new; 3 repair tests extended). Against main's code 11 failed before the last test was added (the 8 new bug tests and the 3 extended repair tests); the 10th, a retag guard against a JE that belongs to another transaction, calls mark_as_owner_equity and so cannot pass on main either. One new test passes on main as a guard: an unposted payment was already posted on the deposit date.
+- Production dry run (read-only): 6 changes, all step 5 (JEs 28, 30, 32, 34, 36, 38 -> deposit dates); steps 1-4 find nothing; balances and registers unchanged.
+
 # Ledger-posting bugs + repair_ledger_postings (3.3.4)
 
 Spec: ~/.hermes/profiles/claude/cache/scratch/ardua-books-ledger-fixes-prompt.md
