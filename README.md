@@ -282,9 +282,9 @@ an import would actually do. Nothing is written. On PostgreSQL it runs in a
 **Fixing an account it reports short:** re-import the same file through the
 web UI. Only the missing rows are added.
 
-#### Repair Ledger Postings (3.3.4)
+#### Repair Ledger Postings (3.3.4, 3.3.5)
 
-Repairs journal entries posted by four bugs fixed in 3.3.4. **Dry run by
+Repairs journal entries posted by the ledger bugs fixed in 3.3.4 and 3.3.5. **Dry run by
 default**: it prints every change, the trial balance before and after, and
 each bank register against its GL account, and writes nothing.
 
@@ -299,6 +299,7 @@ python manage.py repair_ledger_postings --apply    # back up the database first
 | 2 | Payment credits on AR 1200 | Move them to AR 1100 (the account invoices use); deactivate 1200 once empty |
 | 3 | Credits (refunds) linked to expenses, posted as charges | Rebuild as DR bank / CR expense; make the expense negative |
 | 4 | Transfers pairing two withdrawals (or two deposits) | Unpair; restore each import JE against Owner Equity; print the likely real counterpart |
+| 5 | Payment JEs dated differently from their deposit (3.3.5) | Re-date the JE to the deposit's date; balances unchanged |
 
 Problems are found from the data, not fixed ids, so a second run reports
 "0 change(s) found". Anything ambiguous is skipped with a warning rather
@@ -310,6 +311,8 @@ The dry run works under the `books_readonly` login, so it can be checked
 against live data from homer before anyone applies it. After applying in
 production, match Wells Fargo txn 293 to Marriott txn 488 ("Payment Thank
 You-Mobile") as a transfer, and link Marriott txn 489 (Costco) to an expense.
+Steps 1–4 were applied to production on 2026-11-01 and the transfer was
+re-matched; after 3.3.5 deploys, `--apply` again to run step 5 (6 changes).
 
 #### Standard Django Commands
 
