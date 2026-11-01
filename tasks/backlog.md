@@ -18,6 +18,16 @@
 - [ ] **Cookie/transport hardening flagged by `manage.py check --deploy`:** `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_SSL_REDIRECT` and `SECURE_HSTS_SECONDS` are all unset. Not a one-line fix — the backlog item below accepts plain-HTTP LAN access to `books.ardua.lan:8000`, and flipping the cookie flags would break logins over that path. Resolve alongside the HTTPS-on-8000 item.
 - [ ] Consider splitting dev tooling (`black`, `pytest*`, `factory-boy`) into a `requirements-dev.txt` that starts with `-r requirements.txt`. Keeps one authority while dropping test tooling from the production image. Deferred to keep this change tight.
 
+## Bank import data repair, after 3.3.3 is merged (2026-11-01)
+
+Latest exports: `~/Documents/Ardua/Statements/CreditCards/<issuer>/<last4>/2026/2026-01-01_to_2026-10-31_transactions.csv`. Production audit of each, read-only via `books_readonly` (2026-11-01):
+
+- [ ] **Amex 3008 (account 2): import the 10-31 YTD file.** It adds 109 and skips 341: the 6 Uber "TRIP HELP" charges the old importer collapsed ($5.77: 2/8 ×2, 2/9 ×2, 2/11, 2/21) plus 103 never imported (nothing after 2026-08-03). This one file supersedes re-importing `activity-7.csv`. It confirms the spec's "5 repeat groups / 7 rows". Afterwards `audit_import_duplicates 2 <file>` should report "Short in Ardua Books: none".
+- [ ] **Chase Prime 3876 (account 4): import the 10-31 YTD file.** It adds 69 and skips 48; all 69 were never imported (last import around 2026-04-15), none are collapsed repeats.
+- [ ] **Chase Marriott 6330 (account 1): import the 10-31 YTD file.** It adds 1 (2026-10-09 DAN SERVICES INC, $254.00) and skips 10.
+- [ ] **Wells Fargo (account 3) has not been audited.** No export of it was on homer.
+- Clean, per the same audit: Amex 2025 (`activity-2.csv`), Chase 3876 2025, Chase 6330 2026.
+
 ## Optional hardening
 
 - [ ] Consider serving HTTPS directly on port 8000 (self-signed cert) so direct LAN access to `books.ardua.lan:8000` is encrypted, in addition to the sideshowbob proxy. Low priority — LAN access is currently an accepted risk.

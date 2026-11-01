@@ -21,7 +21,7 @@ MIT License © 2026 Ardua, Inc.
 - **Journal Entries** – Automatic GL posting when invoices are issued/voided
 - **Payment Tracking** – Record payments, allocate to invoices, track unapplied amounts
 - **Bank Accounts** – Track checking, savings, credit card, and cash accounts
-- **Bank Transaction Import** – CSV import with configurable column mapping and sign rules
+- **Bank Transaction Import** – CSV import with configurable column mapping and sign rules. Safe to re-import a growing year-to-date file: rows already present are skipped, while genuinely repeated transactions (two identical charges on the same day) are all kept
 
 ### Reporting
 - **Trial Balance** – Aggregated debits/credits with date filtering
@@ -243,6 +243,44 @@ python manage.py clear_transactions --yes  # Skip confirmation
 - Recurring charge occurrences
 - Payments & payment applications
 - Bank transactions
+
+#### Audit Bank Imports for Missing Duplicates
+
+Read-only. Compares a bank or card CSV with the transactions Ardua Books
+already holds for that account, and reports what re-importing the file would
+do.
+
+```bash
+python manage.py audit_import_duplicates <bank_account_id> path/to/activity.csv
+python manage.py audit_import_duplicates 2 activity.csv --all   # list every key
+```
+
+**How the import treats duplicates.** The importer counts matching rows rather
+than asking whether a match exists. A match means the same date, description
+and amount; descriptions are compared ignoring differences in spacing, because
+banks re-pad them between exports. For each one it imports `count in file − count already in the
+account`, never less than zero. So:
+
+- re-importing a file adds nothing;
+- a year-to-date file that has grown adds only the new rows;
+- two identical charges on the same day are both kept.
+
+Before 3.3.3 the importer kept only one of each such pair, and still reported
+success, which left the account understated.
+
+**What the audit prints.** For the file's date range:
+
+- the keys the account is short of;
+- any transactions in the account that are not in the file (manual entries,
+  say, which a re-import leaves alone);
+- how many rows a re-import would add.
+
+It uses the same parser and planner as the import, so that prediction is what
+an import would actually do. Nothing is written. On PostgreSQL it runs in a
+`READ ONLY` transaction, and it works under the `books_readonly` login.
+
+**Fixing an account it reports short:** re-import the same file through the
+web UI. Only the missing rows are added.
 
 #### Standard Django Commands
 
