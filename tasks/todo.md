@@ -30,3 +30,9 @@ Deviations from the spec, decided up front:
   - Imports into the same account are serialised with a row lock.
   - The audit splits "short" into collapsed repeats and rows never imported.
   - The audit lists only mismatched keys by default; `--all` lists every key.
+
+## Pre-merge verification against the latest exports (2026-11-01)
+- Audited the 10-31 YTD exports in `~/Documents/Ardua/Statements/CreditCards` against production, read-only.
+- **Found:** Amex re-padded 3 descriptions between exports (`AMAZON MARKEPLACE NA PA` → `…NA  PA`). With exact matching, a re-import would have double-booked them ($607.30), and the audit listed them as both short and extra.
+- **Fixed before merging:** duplicate matching collapses whitespace runs in descriptions (`match_description`); stored descriptions keep the bank's spacing. 2 new tests; suite 126 passed.
+- **After the fix:** Amex adds 109 / skips 341 with nothing extra; Chase 3876 adds 69 / skips 48; Chase 6330 adds 1 / skips 10. The new Amex file has exactly the spec's 5 repeat groups / 7 rows.

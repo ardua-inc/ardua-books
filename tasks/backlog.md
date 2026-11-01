@@ -20,9 +20,11 @@
 
 ## Bank import data repair, after 3.3.3 is merged (2026-11-01)
 
-- [ ] **Re-import `~/Downloads/activity-7.csv` into Amex (bank account 2).** It restores the 6 Uber "TRIP HELP" charges ($5.77: 2/8 ×2, 2/9 ×2, 2/11, 2/21) that the old importer collapsed. Production audit, read-only via `books_readonly`: re-importing would add exactly those 6 and skip 341. Run `audit_import_duplicates 2 activity-7.csv` before and after; afterwards it should report "Short in Ardua Books: none".
-- [ ] **Amex has nothing after 2026-08-03.** The newer YTD export (the one with the `09/05/2026 ANTHROPIC` ×2 repeat) isn't on homer. Import it after the merge, so the repeats are kept.
-- [ ] **Chase Prime 3876 (account 4) was last imported around 2026-04-17.** Its 2026-06-13 export has 25 rows not in Ardua Books, all never imported rather than collapsed (`audit_import_duplicates 4 …` shows 0 partial keys), so this isn't the duplicate bug. Bring it up to date.
+Latest exports: `~/Documents/Ardua/Statements/CreditCards/<issuer>/<last4>/2026/2026-01-01_to_2026-10-31_transactions.csv`. Production audit of each, read-only via `books_readonly` (2026-11-01):
+
+- [ ] **Amex 3008 (account 2): import the 10-31 YTD file.** It adds 109 and skips 341: the 6 Uber "TRIP HELP" charges the old importer collapsed ($5.77: 2/8 ×2, 2/9 ×2, 2/11, 2/21) plus 103 never imported (nothing after 2026-08-03). This one file supersedes re-importing `activity-7.csv`. It confirms the spec's "5 repeat groups / 7 rows". Afterwards `audit_import_duplicates 2 <file>` should report "Short in Ardua Books: none".
+- [ ] **Chase Prime 3876 (account 4): import the 10-31 YTD file.** It adds 69 and skips 48; all 69 were never imported (last import around 2026-04-15), none are collapsed repeats.
+- [ ] **Chase Marriott 6330 (account 1): import the 10-31 YTD file.** It adds 1 (2026-10-09 DAN SERVICES INC, $254.00) and skips 10.
 - [ ] **Wells Fargo (account 3) has not been audited.** No export of it was on homer.
 - Clean, per the same audit: Amex 2025 (`activity-2.csv`), Chase 3876 2025, Chase 6330 2026.
 

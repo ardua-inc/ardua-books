@@ -257,7 +257,8 @@ python manage.py audit_import_duplicates 2 activity.csv --all   # list every key
 
 **How the import treats duplicates.** The importer counts matching rows rather
 than asking whether a match exists. A match means the same date, description
-and amount. For each one it imports `count in file − count already in the
+and amount; descriptions are compared ignoring differences in spacing, because
+banks re-pad them between exports. For each one it imports `count in file − count already in the
 account`, never less than zero. So:
 
 - re-importing a file adds nothing;

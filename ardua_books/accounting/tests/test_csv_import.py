@@ -180,6 +180,27 @@ class TestDuplicateHandling:
             "Imported 4 new transaction(s) (3 duplicate(s) skipped)."
         ]
 
+    def test_respaced_description_is_not_a_new_transaction(self, logged_in, amex, offset_account):
+        # Amex re-padded these descriptions between two 2026 exports.
+        upload(logged_in, amex, offset_account, amex_csv(("07/22/2026", "AMAZON MARKEPLACE NA PA", "55.30")))
+
+        response = upload(
+            logged_in, amex, offset_account,
+            amex_csv(
+                ("07/22/2026", "AMAZON MARKEPLACE NA  PA", "55.30"),
+                ("07/22/2026", "AMAZON  MARKEPLACE NA PA ", "55.30"),
+            ),
+        )
+
+        # One copy already present, the file has two: one more, kept as the bank spells it.
+        assert stored(amex) == [
+            (date(2026, 7, 22), "AMAZON MARKEPLACE NA PA", Decimal("-55.30")),
+            (date(2026, 7, 22), "AMAZON MARKEPLACE NA  PA", Decimal("-55.30")),
+        ]
+        assert message_texts(response) == [
+            "Imported 1 new transaction(s) (1 duplicate(s) skipped)."
+        ]
+
     def test_blank_header_and_empty_date_rows_are_skipped(self, logged_in, amex, offset_account):
         content = "\n".join([
             AMEX_HEADER,
@@ -474,6 +495,18 @@ class TestAuditCommand:
 
         assert "In Ardua Books but not in the file: 1 transaction(s) under 1 key(s)" in output
         assert "MANUAL ENTRY" in output
+
+    def test_respaced_description_is_neither_short_nor_extra(
+        self, logged_in, amex, offset_account, csv_file
+    ):
+        upload(logged_in, amex, offset_account, amex_csv(("05/02/2026", "AMAZON MARKEPLACE NA PA", "10.83")))
+        path = csv_file(amex_csv(("05/02/2026", "AMAZON MARKEPLACE NA  PA", "10.83")))
+
+        output = run_audit(amex.pk, path)
+
+        assert "Short in Ardua Books: none." in output
+        assert "In Ardua Books but not in the file: none." in output
+        assert "would add 0 transaction(s) and skip 1" in output
 
     def test_all_flag_lists_every_key(self, logged_in, amex, offset_account, csv_file):
         upload(logged_in, amex, offset_account, amex_csv(COFFEE))

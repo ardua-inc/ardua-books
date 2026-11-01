@@ -67,7 +67,19 @@ class ParsedRow:
     @property
     def key(self):
         """What makes two transactions indistinguishable to the importer."""
-        return (self.date, self.description, self.amount)
+        return (self.date, match_description(self.description), self.amount)
+
+
+def match_description(description):
+    """
+    A description as the duplicate check compares it: whitespace runs collapsed
+    to a single space. The stored description keeps the bank's spacing.
+
+    Banks re-pad descriptions between exports. Amex's 2026 export changed
+    "AMAZON MARKEPLACE NA PA" to "AMAZON MARKEPLACE NA  PA" for transactions
+    already imported; compared exactly, a re-import would book them again.
+    """
+    return " ".join(description.split())
 
 
 def parse_amount(raw):
@@ -219,12 +231,16 @@ def existing_counts(bank_account, rows):
         .values("date", "description", "amount")
         .annotate(n=Count("id"))
     )
-    return Counter(
-        {
-            (item["date"], item["description"], item["amount"].quantize(CENT)): item["n"]
-            for item in queryset
-        }
-    )
+    # Descriptions differing only in spacing are one key, so sum, don't assign.
+    counts = Counter()
+    for item in queryset:
+        key = (
+            item["date"],
+            match_description(item["description"]),
+            item["amount"].quantize(CENT),
+        )
+        counts[key] += item["n"]
+    return counts
 
 
 def plan_import(bank_account, rows):

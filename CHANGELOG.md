@@ -7,6 +7,7 @@ surfaced by the `/about/` page.
 ## [3.3.3] - 2026-11-01
 
 - Bank CSV import counts duplicates instead of collapsing them. Genuinely repeated transactions (identical date, description and amount, e.g. two same-day Uber charges) are all imported. Re-importing a file, or a grown year-to-date file, still adds only the rows not already present. Previously such repeats were silently dropped, and production's Amex account was short 6 charges ($5.77).
+- Duplicate matching ignores differences in spacing within a description. Amex re-padded some descriptions between 2026 exports (`AMAZON MARKEPLACE NA PA` → `AMAZON MARKEPLACE NA  PA`); compared exactly, a re-import would have booked those 3 charges ($607.30) a second time. Stored descriptions keep the bank's spacing.
 - The import validates every row before writing anything. A bad row (too few columns, unparseable date or amount, more than 2 decimal places, over-long description) rejects the file with its line number instead of a 500 or a partial import.
 - Blank rows, headers and empty date cells are skipped without crashing. A UTF-8 byte-order mark no longer hides the first row of a header-less file.
 - Amount cells tolerate `$`, thousands separators and spaces (Citi's `-$ 1,308.35`).
