@@ -4,6 +4,15 @@ All notable changes to Ardua Books are recorded here. The canonical version
 number lives in `ardua_books/ardua_books/settings.py` (`VERSION`) and is
 surfaced by the `/about/` page.
 
+## [3.3.3] - 2026-11-01
+
+- Bank CSV import counts duplicates instead of collapsing them. Genuinely repeated transactions (identical date, description and amount, e.g. two same-day Uber charges) are all imported. Re-importing a file, or a grown year-to-date file, still adds only the rows not already present. Previously such repeats were silently dropped, and production's Amex account was short 6 charges ($5.77).
+- The import validates every row before writing anything. A bad row (too few columns, unparseable date or amount, more than 2 decimal places, over-long description) rejects the file with its line number instead of a 500 or a partial import.
+- Blank rows, headers and empty date cells are skipped without crashing. A UTF-8 byte-order mark no longer hides the first row of a header-less file.
+- Amount cells tolerate `$`, thousands separators and spaces (Citi's `-$ 1,308.35`).
+- Imports into the same account are serialised (row lock), so two concurrent imports of one file cannot both insert it.
+- New read-only `audit_import_duplicates` command: compares a CSV with an account and predicts what a re-import would add.
+
 ## [3.3.2] - 2026-11-01
 
 - Added `books_readonly`, a read-only Postgres login for production reporting. Credential-bearing tables and `auth_user.password` are denied, and statement and idle-transaction timeouts protect deploys.

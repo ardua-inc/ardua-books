@@ -18,6 +18,14 @@
 - [ ] **Cookie/transport hardening flagged by `manage.py check --deploy`:** `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_SSL_REDIRECT` and `SECURE_HSTS_SECONDS` are all unset. Not a one-line fix — the backlog item below accepts plain-HTTP LAN access to `books.ardua.lan:8000`, and flipping the cookie flags would break logins over that path. Resolve alongside the HTTPS-on-8000 item.
 - [ ] Consider splitting dev tooling (`black`, `pytest*`, `factory-boy`) into a `requirements-dev.txt` that starts with `-r requirements.txt`. Keeps one authority while dropping test tooling from the production image. Deferred to keep this change tight.
 
+## Bank import data repair, after 3.3.3 is merged (2026-11-01)
+
+- [ ] **Re-import `~/Downloads/activity-7.csv` into Amex (bank account 2).** It restores the 6 Uber "TRIP HELP" charges ($5.77: 2/8 ×2, 2/9 ×2, 2/11, 2/21) that the old importer collapsed. Production audit, read-only via `books_readonly`: re-importing would add exactly those 6 and skip 341. Run `audit_import_duplicates 2 activity-7.csv` before and after; afterwards it should report "Short in Ardua Books: none".
+- [ ] **Amex has nothing after 2026-08-03.** The newer YTD export (the one with the `09/05/2026 ANTHROPIC` ×2 repeat) isn't on homer. Import it after the merge, so the repeats are kept.
+- [ ] **Chase Prime 3876 (account 4) was last imported around 2026-04-17.** Its 2026-06-13 export has 25 rows not in Ardua Books, all never imported rather than collapsed (`audit_import_duplicates 4 …` shows 0 partial keys), so this isn't the duplicate bug. Bring it up to date.
+- [ ] **Wells Fargo (account 3) has not been audited.** No export of it was on homer.
+- Clean, per the same audit: Amex 2025 (`activity-2.csv`), Chase 3876 2025, Chase 6330 2026.
+
 ## Optional hardening
 
 - [ ] Consider serving HTTPS directly on port 8000 (self-signed cert) so direct LAN access to `books.ardua.lan:8000` is encrypted, in addition to the sideshowbob proxy. Low priority — LAN access is currently an accepted risk.

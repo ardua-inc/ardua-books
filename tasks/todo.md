@@ -1,32 +1,32 @@
-# Read-only production DB login (books_readonly)
+# Bank CSV import: keep genuine same-day duplicates
 
-Plan: ~/.claude/plans/zippy-roaming-rose.md (approved 2026-11-01)
+Spec: ~/.hermes/profiles/claude/cache/scratch/ardua-books-import-dedupe-prompt.md
+Branch: fix/import-keep-same-day-duplicates (not pushed to main; main deploys to production)
 
-- [x] `ardua_books/deploy/readonly_role.sql` — idempotent role + grants + denylist, in one transaction
-- [x] `docker-compose.yml` — publish db on 127.0.0.1:5432 only
-- [x] `deploy.yml` — sync the SQL file, re-apply it after every migrate
-- [x] `ardua_books/deploy/set_readonly_password.py` — local SCRAM verifier, ~/.pgpass, ~/.pg_service.conf
-- [x] `ardua_books/tests/test_readonly_password.py` — RFC 7677 vector, file writers
-- [x] Docs: README, Restore Runbook, CHANGELOG, VERSION 3.3.2
-- [x] Full test suite green (82 passed)
-- [x] Commit, push, tag v3.3.2, watch deploy (7973587, run 41326847235 green)
-- [x] homer: `brew install libpq`, run set_readonly_password.py
-- [x] Verify A–G — all passed
+Deviations from the spec, decided up front:
+- Version is 3.3.3, not 3.3.2: 3.3.2 already shipped (books_readonly), and production runs 3.3.2-7973587.
+- The spec's amount cleaning, `replace('$','').replace(',','').strip()`, fails on its own example: `-$ 1,308.35` becomes `- 1308.35`, which Decimal rejects. All whitespace is removed instead.
+
+- [x] Shared parser + count-based plan in `accounting/services/importing.py` (one implementation, used by both the view and the audit)
+- [x] View: parse everything first, row-numbered errors, lock the account row, insert only the multiset difference
+- [x] `audit_import_duplicates` management command (read-only; Postgres transaction set READ ONLY)
+- [x] Tests: the 6 the spec asks for, plus amount, date and length validation, BOM handling, atomicity, and agreement between the audit and a real import
+- [x] Full suite green
+- [x] Run the audit against production via books_readonly with `~/Downloads/activity-7.csv`; check it against the spec's claim (6 Uber rows short)
+- [x] Docs, CHANGELOG, VERSION 3.3.3; commit on the branch; push the branch only
 
 ## Review
-Shipped as v3.3.2 and verified on production, 2026-11-01.
-
-- **A, trust bypass:** through the tunnel, superuser `ardua` is refused both without a password and with a wrong one. Clients arrive from the Docker gateway `172.18.0.1`, never `127.0.0.1`, so the image's loopback `trust` rule is unreachable.
-- **B:** port 5432 is not reachable from the LAN; it's bound to `127.0.0.1` on books.
-- **C:** business data is readable (14 invoices, 3 clients, 921 journal entries).
-- **D:** these are all denied:
-  - `auth_user.password`
-  - `django_session`
-  - `socialaccount_socialtoken` and `socialaccount_socialapp`
-  - `account_emailconfirmation`
-  - `CREATE`, `INSERT`, `UPDATE`, `DELETE` — still refused by privileges after `SET default_transaction_read_only = off`
-- **E:** `auth_user` username and email are readable.
-- **F:** `statement_timeout` is 2min and `idle_in_transaction_session_timeout` is 5min.
-- **G:** re-applying the script on prod is a clean no-op, and the password survives it.
-- **Pre-deploy:** the SQL was also validated against a schema-only copy of prod in a throwaway container on books: idempotent, and simulated `mfa_*`/`usersessions_*` tables were denied after re-apply.
-- **Password tool:** checked against the RFC 7677 example exchange and mutation-tested (3 of 3 mutations caught).
+- **Tests:** 124 passed, 42 of them new in `accounting/tests/test_csv_import.py`.
+  - Run against the unmodified view from `main`, all 8 `TestDuplicateHandling` cases fail for the right reasons: it imports 1 of 2 identical rows and 1 of 3, raises `IndexError` on an empty date cell, and collapses the repeated charge.
+- **Production audit:** run read-only through `books_readonly` with `activity-7.csv`, it reproduces the spec's claim exactly — 6 rows short, all Uber "TRIP HELP" (2/8 ×2, 2/9 ×2, 2/11, 2/21), $5.77 in total, and nothing in Ardua Books that isn't in the file.
+- **Other accounts:**
+  - Amex 2025, Chase 3876 2025 and Chase 6330 2026 are clean.
+  - Chase 3876 2026 is short 25 rows, but all of them were never imported (the account was last imported in mid-April). None are collapsed repeats.
+- **Spec deviations:**
+  - Version is 3.3.3 rather than 3.3.2.
+  - The amount cleaner strips all whitespace; the spec's formula fails on its own Citi example.
+  - Rows with a non-zero third decimal place are rejected.
+  - Descriptions over 255 characters are rejected.
+  - Imports into the same account are serialised with a row lock.
+  - The audit splits "short" into collapsed repeats and rows never imported.
+  - The audit lists only mismatched keys by default; `--all` lists every key.

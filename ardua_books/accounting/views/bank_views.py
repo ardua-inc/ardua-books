@@ -1,8 +1,7 @@
 """
 Bank account and transaction management views.
 """
-import csv
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib import messages
@@ -37,7 +36,12 @@ from accounting.models import (
     TransactionRule,
 )
 from accounting.services.banking import BankAccountService, BankTransactionService
-from accounting.services.importing import normalize_amount
+from accounting.services.importing import (
+    CSVImportError,
+    decode_csv,
+    parse_bank_csv,
+    plan_import,
+)
 from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin, readonly_user_check
 
 
@@ -361,53 +365,40 @@ class BankTransactionCSVImportView(LoginRequiredMixin, ReadOnlyUserMixin, View):
             messages.error(request, "No import profile defined for this account.")
             return redirect("accounting:bankaccount_register", pk=account.pk)
 
-        decoded = csv_file.read().decode("utf-8").splitlines()
-        reader = csv.reader(decoded)
+        def reject(message):
+            messages.error(request, f"Import cancelled, nothing was imported. {message}")
+            return render(request, self.template_name, {"form": form, "account": account})
 
-        imported_count = 0
-        skipped_count = 0
+        try:
+            text = decode_csv(csv_file.read())
+        except ValueError as exc:
+            return reject(str(exc))
 
-        for row in reader:
-            if not row:
-                continue
+        # Parse and validate every row before writing anything, so one bad row
+        # rejects the whole file instead of importing part of it.
+        try:
+            rows = parse_bank_csv(text, profile)
+        except CSVImportError as exc:
+            return reject(str(exc))
 
-            if not row[profile.date_column_index].strip()[0].isdigit():
-                continue
+        # Serialise imports into the same account. Without this, two imports
+        # of the same file running at once (say, the scheduled monthly upload
+        # and a manual one) would both see the same existing counts, and both
+        # insert the same rows.
+        BankAccount.objects.select_for_update().get(pk=account.pk)
 
-            raw_date = row[profile.date_column_index].strip()
-            raw_desc = row[profile.description_column_index].strip()
-            raw_amount = row[profile.amount_column_index].strip()
-
-            if profile.skip_if_description_contains:
-                if profile.skip_if_description_contains.lower() in raw_desc.lower():
-                    continue
-
-            dt = datetime.strptime(raw_date, profile.date_format).date()
-            amt = Decimal(raw_amount)
-            amt = normalize_amount(amt, profile)
-
-            # Check for existing transaction to avoid duplicates
-            existing = BankTransaction.objects.filter(
-                bank_account=account,
-                date=dt,
-                description=raw_desc,
-                amount=amt,
-            ).exists()
-
-            if existing:
-                skipped_count += 1
-                continue
-
+        plan = plan_import(account, rows)
+        for row in plan.to_insert:
             BankTransactionService.post_transaction(
                 bank_account=account,
-                date=dt,
-                description=raw_desc,
-                amount=amt,
+                date=row.date,
+                description=row.description,
+                amount=row.amount,
                 offset_account=offset_account,
             )
 
-            imported_count += 1
-
+        imported_count = len(plan.to_insert)
+        skipped_count = plan.duplicate_count
         if skipped_count > 0:
             messages.success(
                 request,
