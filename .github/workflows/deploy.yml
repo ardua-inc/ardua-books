@@ -51,11 +51,12 @@ jobs:
             chmod 600 ~/.ssh/deploy_key
             ssh-keyscan -H books.ardua.lan >> ~/.ssh/known_hosts
 
-        - name: Sync docker-compose.yml to server
+        - name: Sync deploy files to server
           run: |
             scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
               ardua_books/docker-compose.yml \
-              ${{ secrets.DEPLOY_USER }}@books.ardua.lan:/opt/ardua_books/docker-compose.yml
+              ardua_books/deploy/readonly_role.sql \
+              ${{ secrets.DEPLOY_USER }}@books.ardua.lan:/opt/ardua_books/
 
         - name: Deploy on books
           run: |
@@ -69,4 +70,9 @@ jobs:
               until docker compose exec -T db pg_isready; do sleep 1; done
               docker compose exec -T web python manage.py migrate
               docker compose exec -T web python manage.py collectstatic --noinput
+              # Re-apply the read-only reporting role after migrate, so tables a
+              # migration just added are granted -- or denied -- on this deploy.
+              # Kept last: the remote script has no `set -e`, so only the final
+              # command decides whether this step fails.
+              docker compose exec -T db sh -c "psql -X -q -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"" < readonly_role.sql
             '

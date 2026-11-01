@@ -75,6 +75,7 @@ docker run --rm -it \
     --clean \
     --if-exists \
     --no-owner \
+    --no-acl \
     --dbname=postgresql://USER:PASSWORD@HOST:5432/ardua_books \
     /restore/ardua_books.restore.dump
 ```
@@ -87,7 +88,27 @@ Replace:
 
 ---
 
-### 3. Post-restore validation
+`--no-acl` skips the dump's GRANT statements. They reference the
+`books_readonly` role, and roles are cluster-level objects that `pg_dump`
+does not include, so restoring them into a fresh cluster fails. The grants
+are re-created in the next step.
+
+### 3. Re-apply the read-only role
+
+From `/opt/ardua_books` on books (or wherever `readonly_role.sql` was synced):
+
+```bash
+docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < readonly_role.sql
+```
+
+On a fresh cluster this creates the role **without a password**, so it can't
+log in until you set one. Then, from homer:
+
+```bash
+python3 ardua_books/deploy/set_readonly_password.py
+```
+
+### 4. Post-restore validation
 
 * Confirm tables exist
 * Start application container

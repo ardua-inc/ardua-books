@@ -397,6 +397,65 @@ The `deploy/nginx.conf` provides a reverse proxy configuration. For production:
 - Serve static files from the Docker volume
 - Proxy application traffic to Gunicorn
 
+### Read-only Database Access
+
+`books_readonly` is a Postgres login for reporting and ad-hoc queries against
+production. It can read the business data and nothing else.
+
+**What it can and cannot do**
+
+- `SELECT` on every table in `public`, except the ones that hold credentials:
+  `django_session`, `socialaccount_socialtoken`, `socialaccount_socialapp`,
+  `account_emailconfirmation`, and anything matching `mfa_%`,
+  `usersessions_%` or `%token%`. Read access to those would let a
+  "read-only" login hijack a live admin session or impersonate a user.
+- `auth_user` is readable except the `password` column, so
+  `SELECT * FROM auth_user` is denied: name the columns you want.
+- No `INSERT`/`UPDATE`/`DELETE`/DDL. That is enforced by privileges; the
+  role's `default_transaction_read_only` is only a convenience.
+- Queries time out after 2 minutes, and a transaction left idle for 5 minutes
+  is ended. An open transaction holds locks that would otherwise stall the
+  next deploy's `migrate`, and every app query behind it.
+
+**How it is maintained**
+
+- `ardua_books/deploy/readonly_role.sql` defines the role, its grants and the
+  denylist. It is idempotent, contains no secret, and the deploy workflow
+  re-applies it after every `migrate`. New tables become readable (or stay
+  denied) on the same deploy that creates them. Deliberately, there are no
+  default privileges, so a new table is never readable before the denylist
+  has seen it.
+- Postgres is published on books' loopback only (`127.0.0.1:5432`). It is not
+  reachable from the LAN; access is through SSH.
+
+**Setting or rotating the password** (from homer)
+
+```bash
+python3 ardua_books/deploy/set_readonly_password.py
+```
+
+This generates a password, sends only its SCRAM-SHA-256 verifier to the
+server (the plaintext never leaves your machine), and writes it to
+`~/.pgpass` (mode 0600) plus an `[ardua-books-ro]` profile in
+`~/.pg_service.conf`. It never prints the password. Run it again to rotate.
+
+**Connecting with psql**
+
+```bash
+brew install libpq          # one-time; keg-only, so use the full path below
+ssh -fN -L 15432:127.0.0.1:5432 jramsey@books.ardua.lan
+/opt/homebrew/opt/libpq/bin/psql service=ardua-books-ro
+```
+
+**Connecting with DBeaver** (uses its own SSH tunnel; no `ssh -L` needed)
+
+- *Main*: host `127.0.0.1`, port `5432`, database `ardua_books`,
+  user `books_readonly`
+- *SSH*: enable "Use SSH Tunnel": host `books.ardua.lan`, user `jramsey`,
+  public key `~/.ssh/id_ed25519`
+- To copy the password to the clipboard without displaying it:
+  `awk -F: '$4=="books_readonly"{print $5}' ~/.pgpass | pbcopy`
+
 ---
 
 ## Testing

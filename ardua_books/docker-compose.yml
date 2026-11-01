@@ -22,6 +22,12 @@ services:
       - .env
     volumes:
       - db_data:/var/lib/postgresql/data
+    # Loopback only: reachable from books itself (and so over an SSH tunnel)
+    # but never from the LAN -- ufw is inactive on this host, so publishing
+    # on 0.0.0.0 would expose Postgres to every machine on the network.
+    # Exists for the books_readonly reporting login (deploy/readonly_role.sql).
+    ports:
+      - "127.0.0.1:5432:5432"
     restart: unless-stopped
 
   db-backup:
