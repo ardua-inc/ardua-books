@@ -491,7 +491,7 @@ def banktransaction_link_expense(request, pk):
                     client=None,  # Not client-specific
                     category=category,
                     expense_date=txn.date,
-                    amount=abs(txn.amount),
+                    amount=-txn.amount,  # a credit (refund) becomes a negative expense
                     description=txn.description,
                     billable=False,  # Non-client expenses are not billable
                 )
@@ -796,7 +796,7 @@ class BatchMatchExpensesView(LoginRequiredMixin, ReadOnlyUserMixin, FilterPersis
                                 client=None,
                                 category=category,
                                 expense_date=txn.date,
-                                amount=abs(txn.amount),
+                                amount=-txn.amount,  # mirrors the txn, as in banktransaction_link_expense
                                 description=txn.description,
                                 billable=False,
                             )

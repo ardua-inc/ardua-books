@@ -283,7 +283,7 @@ class TestPaymentGLPosting:
         assert len(lines) == 2
 
         cash_line = next(l for l in lines if l.account.code == "1000")
-        ar_line = next(l for l in lines if l.account.code == "1200")
+        ar_line = next(l for l in lines if l.account.code == "1100")  # same AR account invoices debit
 
         assert cash_line.debit == Decimal("1000.00")
         assert cash_line.credit == Decimal("0")
@@ -324,7 +324,7 @@ class TestPaymentGLPosting:
         assert len(lines) == 3
 
         cash_line = next(l for l in lines if l.account.code == "1000")
-        ar_line = next(l for l in lines if l.account.code == "1200")
+        ar_line = next(l for l in lines if l.account.code == "1100")  # same AR account invoices debit
         unapplied_line = next(l for l in lines if l.account.code == "2200")
 
         assert cash_line.debit == Decimal("750.00")

@@ -2,6 +2,7 @@ from decimal import Decimal
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 
+from accounting import gl_codes
 from accounting.models import (
     BankAccount,
     BankAccountType,
@@ -100,7 +101,7 @@ class BankAccountService:
         LIABILITY account (credit cards):
            positive opening:   Dr Owner Equity / Cr Liability
         """
-        owner_equity = ChartOfAccount.objects.get(code="3000")
+        owner_equity = gl_codes.gl_account(gl_codes.OWNER_EQUITY)
 
         je = JournalEntry.objects.create(
             description=f"Opening balance for {bank_account}",
@@ -203,38 +204,44 @@ class BankTransactionService:
             source_object_id=txn.id,
         )
 
-        amt = txn.amount
-
-        if amt > 0:
-            # Deposit
-            debit_account = bank_account.account
-            credit_account = offset_account
-            debit = amt
-            credit = amt
-        else:
-            # Withdrawal
-            debit_account = offset_account
-            credit_account = bank_account.account
-            debit = abs(amt)
-            credit = abs(amt)
-
-        JournalLine.objects.create(
-            entry=je,
-            account=debit_account,
-            debit=debit,
-            credit=Decimal("0"),
-        )
-        JournalLine.objects.create(
-            entry=je,
-            account=credit_account,
-            debit=Decimal("0"),
-            credit=credit,
+        BankTransactionService.create_lines(
+            je, BankTransactionService.import_entry_lines(txn, offset_account)
         )
 
         txn.journal_entry = je
         txn.save(update_fields=["journal_entry"])
 
         return txn
+
+    @staticmethod
+    def import_entry_lines(txn, offset_account):
+        """
+        The (account, debit, credit) lines of an unmatched transaction's JE:
+        a deposit debits the bank and credits the offset; a withdrawal the
+        reverse.
+        """
+        amt = abs(txn.amount)
+        bank = txn.bank_account.account
+        if txn.amount > 0:
+            return [(bank, amt, Decimal("0")), (offset_account, Decimal("0"), amt)]
+        return [(offset_account, amt, Decimal("0")), (bank, Decimal("0"), amt)]
+
+    @staticmethod
+    def expense_entry_lines(txn, expense_account):
+        """
+        The (account, debit, credit) lines of a transaction linked to an
+        expense. A charge debits the expense; a credit (refund) credits it.
+        """
+        amt = abs(txn.amount)
+        bank = txn.bank_account.account
+        if txn.amount > 0:
+            return [(bank, amt, Decimal("0")), (expense_account, Decimal("0"), amt)]
+        return [(expense_account, amt, Decimal("0")), (bank, Decimal("0"), amt)]
+
+    @staticmethod
+    def create_lines(je, lines):
+        for account, debit, credit in lines:
+            JournalLine.objects.create(entry=je, account=account, debit=debit, credit=credit)
 
     # ----------------------------------------------------------------------
     # 2. CREATE OPENING BALANCE JOURNAL ENTRY
@@ -266,7 +273,7 @@ class BankTransactionService:
         )
 
         # Credit Owner Equity
-        offset = ChartOfAccount.objects.get(code="3000")  # Owner Equity
+        offset = gl_codes.gl_account(gl_codes.OWNER_EQUITY)
         JournalLine.objects.create(
             entry=je,
             account=offset,
@@ -283,8 +290,8 @@ class BankTransactionService:
     @transaction.atomic
     def create_payment_from_transaction(txn, client, date, amount, method, memo):
         """
-        Creates a Payment and links it to the BankTransaction.
-        JE is created by Payment.post_to_accounting().
+        Creates a Payment and links it to the BankTransaction, which posts it
+        to the deposit's GL account (see link_existing_payment).
         """
         payment = Payment.objects.create(
             client=client,
@@ -294,16 +301,7 @@ class BankTransactionService:
             memo=memo,
             unapplied_amount=Decimal(amount),
         )
-
-        # Post JE
-        je = payment.post_to_accounting()
-
-        # Link to transaction
-        txn.payment = payment
-        txn.journal_entry = je
-        txn.save(update_fields=["payment", "journal_entry"])
-
-        return payment
+        return BankTransactionService.link_existing_payment(txn, payment)
 
     # ----------------------------------------------------------------------
     # 4. LINK BANK TRANSACTION TO EXISTING PAYMENT
@@ -320,9 +318,26 @@ class BankTransactionService:
 
         Also updates the payment date to match the bank transaction date,
         since the bank statement date is authoritative.
+
+        Posting: the deposit and the payment are one receipt of money, so
+        exactly one JE may remain -- the payment's, debiting the deposit's own
+        GL account:
+          • the transaction's import JE (DR bank / CR offset) is deleted;
+          • a payment posted before it was linked debited Cash (undeposited
+            funds); that debit moves to the deposit's account;
+          • a payment not yet posted is posted straight to the deposit's account.
         """
         if txn.payment is not None:
             raise ValueError("Bank transaction is already linked to a payment.")
+
+        if txn.is_matched:
+            raise ValueError("Bank transaction is already matched to an expense or transfer.")
+
+        other_txn = payment.bank_transactions.exclude(pk=txn.pk).first()
+        if other_txn is not None:
+            raise ValueError(
+                f"Payment is already linked to another bank transaction ({other_txn})."
+            )
 
         if Decimal(payment.amount) != Decimal(txn.amount):
             raise ValueError(
@@ -334,13 +349,37 @@ class BankTransactionService:
             payment.date = txn.date
             payment.save(update_fields=["date"])
 
-        je = payment.post_to_accounting()
+        BankTransactionService._delete_import_entry(txn)
+
+        deposit_account = txn.bank_account.account
+        je = payment.post_to_accounting(deposit_account=deposit_account)
+        je.lines.filter(account__code=gl_codes.CASH, debit__gt=0).update(account=deposit_account)
 
         txn.payment = payment
         txn.journal_entry = je
         txn.save(update_fields=["payment", "journal_entry"])
 
         return payment
+
+    @staticmethod
+    def _delete_import_entry(txn):
+        """
+        Delete the JE post_transaction() created for txn, before the txn is
+        matched to a payment, expense or transfer that posts its own JE.
+
+        Only a JE sourced from this transaction is deleted. Callers check that
+        txn is unmatched, so this is a guard, not a filter.
+        """
+        je = txn.journal_entry
+        if je is None:
+            return
+        if not (
+            je.source_content_type_id == ContentType.objects.get_for_model(BankTransaction).id
+            and je.source_object_id == txn.id
+        ):
+            raise ValueError(f"Journal entry {je.id} does not belong to bank transaction {txn.id}.")
+        je.delete()
+        txn.journal_entry = None
 
     # ----------------------------------------------------------------------
     # 5. CHANGE OFFSET ACCOUNT ON EXISTING TRANSACTION
@@ -355,21 +394,9 @@ class BankTransactionService:
         je = txn.journal_entry
         je.lines.all().delete()
 
-        amt = txn.amount
-
-        if amt > 0:
-            debit = amt
-            credit = amt
-            debit_acct = txn.bank_account.account
-            credit_acct = new_offset_account
-        else:
-            debit = abs(amt)
-            credit = abs(amt)
-            debit_acct = new_offset_account
-            credit_acct = txn.bank_account.account
-
-        JournalLine.objects.create(entry=je, account=debit_acct, debit=debit, credit=0)
-        JournalLine.objects.create(entry=je, account=credit_acct, debit=0, credit=credit)
+        BankTransactionService.create_lines(
+            je, BankTransactionService.import_entry_lines(txn, new_offset_account)
+        )
 
         txn.offset_account = new_offset_account
         txn.save(update_fields=["offset_account"])
@@ -385,9 +412,17 @@ class BankTransactionService:
         """
         Links a bank transaction to an expense and posts to GL.
 
-        Creates a journal entry:
+        A charge (negative amount) is an expense:
             DR Expense Account (from expense.category.account)
             CR Bank Account (from txn.bank_account.account)
+
+        A credit (positive amount: a refund or statement credit) reduces the
+        expense, posted the other way round (a contra-expense):
+            DR Bank Account
+            CR Expense Account
+
+        The expense's sign mirrors the transaction's (expense.amount ==
+        -txn.amount): a refund is a negative expense, never a positive one.
 
         Also updates expense.payment_account to the bank account.
         """
@@ -399,6 +434,17 @@ class BankTransactionService:
         if txn.payment is not None:
             raise ValueError("Bank transaction is already linked to a payment.")
 
+        if txn.amount > 0 and expense.amount > 0:
+            raise ValueError(
+                f"This transaction is a credit (a refund) of ${txn.amount}. Link it to a "
+                f"refund -- an expense with a negative amount -- not to an expense of ${expense.amount}."
+            )
+        if txn.amount < 0 and expense.amount < 0:
+            raise ValueError(
+                f"This transaction is a charge of ${abs(txn.amount)}; it cannot be linked to "
+                f"a refund (an expense of ${expense.amount})."
+            )
+
         expense_account = expense.category.account
         if not expense_account:
             raise ValueError(
@@ -407,16 +453,13 @@ class BankTransactionService:
             )
 
         # Delete the original JE from post_transaction() to avoid double-posting
-        if txn.journal_entry:
-            txn.journal_entry.delete()
-            txn.journal_entry = None
+        BankTransactionService._delete_import_entry(txn)
 
         # Update expense with payment account
         expense.payment_account = txn.bank_account
         expense.save(update_fields=["payment_account"])
 
         # Create Journal Entry
-        amt = abs(txn.amount)
         je = JournalEntry.objects.create(
             posted_at=txn.date,
             description=f"Expense: {expense.description or expense.category.name}",
@@ -424,20 +467,8 @@ class BankTransactionService:
             source_object_id=expense.id,
         )
 
-        # DR Expense Account
-        JournalLine.objects.create(
-            entry=je,
-            account=expense_account,
-            debit=amt,
-            credit=Decimal("0"),
-        )
-
-        # CR Bank Account
-        JournalLine.objects.create(
-            entry=je,
-            account=txn.bank_account.account,
-            debit=Decimal("0"),
-            credit=amt,
+        BankTransactionService.create_lines(
+            je, BankTransactionService.expense_entry_lines(txn, expense_account)
         )
 
         # Link transaction to expense
@@ -477,24 +508,28 @@ class BankTransactionService:
         if txn_from.bank_account_id == txn_to.bank_account_id:
             raise ValueError("Cannot match a transfer between the same account.")
 
-        # Amounts should be opposite (or at least same absolute value)
+        # Money leaves one account and arrives in the other: one amount must be
+        # negative (withdrawal) and the other positive (deposit, or a payment
+        # on a credit card). Two withdrawals of the same size are not a transfer.
+        if txn_from.amount == 0 or txn_to.amount == 0:
+            raise ValueError("Cannot match a zero-amount transaction as a transfer.")
+        if (txn_from.amount > 0) == (txn_to.amount > 0):
+            kind = "deposits or payments" if txn_from.amount > 0 else "withdrawals or charges"
+            raise ValueError(
+                f"A transfer needs one withdrawal and one deposit or payment; both transactions are {kind}."
+            )
+
         if abs(txn_from.amount) != abs(txn_to.amount):
             raise ValueError(
                 f"Transaction amounts don't match: ${abs(txn_from.amount)} vs ${abs(txn_to.amount)}"
             )
 
         # Delete original JEs from post_transaction() to avoid double-posting
-        if txn_from.journal_entry:
-            txn_from.journal_entry.delete()
-            txn_from.journal_entry = None
-        if txn_to.journal_entry:
-            txn_to.journal_entry.delete()
-            txn_to.journal_entry = None
+        BankTransactionService._delete_import_entry(txn_from)
+        BankTransactionService._delete_import_entry(txn_to)
 
-        # Determine which is the source (withdrawal) and destination (deposit)
-        # Source should be negative (money leaving), destination positive (money arriving)
-        # But for credit card payments, the CC side shows positive (reducing liability)
-        # Let's just use the accounts: the one with negative amount is the source
+        # The negative side is the source (money leaving); the positive side
+        # the destination (a deposit, or a payment reducing a card balance).
         if txn_from.amount < 0:
             source_txn = txn_from
             dest_txn = txn_to

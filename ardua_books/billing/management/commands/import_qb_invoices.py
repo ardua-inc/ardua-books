@@ -34,6 +34,7 @@ from billing.models import (
     InvoiceStatus,
     BillableStatus,
 )
+from accounting import gl_codes
 from accounting.models import (
     ChartOfAccount,
     JournalEntry,
@@ -98,14 +99,14 @@ class Command(BaseCommand):
 
         # Get required GL accounts
         try:
-            ar_account = ChartOfAccount.objects.get(code="1100")
+            ar_account = gl_codes.gl_account(gl_codes.ACCOUNTS_RECEIVABLE)
         except ChartOfAccount.DoesNotExist:
-            raise CommandError("Accounts Receivable account (1100) not found")
+            raise CommandError(f"Accounts Receivable account ({gl_codes.ACCOUNTS_RECEIVABLE}) not found")
 
         try:
-            cash_account = ChartOfAccount.objects.get(code="1000")
+            cash_account = gl_codes.gl_account(gl_codes.CASH)
         except ChartOfAccount.DoesNotExist:
-            raise CommandError("Cash account (1000) not found")
+            raise CommandError(f"Cash account ({gl_codes.CASH}) not found")
 
         # Parse CSV
         invoices_data = self.parse_csv(csv_file)

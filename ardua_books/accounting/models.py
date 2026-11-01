@@ -5,6 +5,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
+from accounting import gl_codes
 from billing.models import Client, Invoice
 
 User = get_user_model()
@@ -97,13 +98,18 @@ class Payment(models.Model):
     # Accounting posting for payments
     # --------------------------------------------------------
     @transaction.atomic
-    def post_to_accounting(self, user=None):
+    def post_to_accounting(self, user=None, deposit_account=None):
         """
         Creates a JournalEntry for this payment.
 
-        DR Cash (full payment amount)
+        DR deposit_account, else Cash (full payment amount)
             CR Accounts Receivable (sum of applications)
             CR Payment Clearing / Unapplied Payments (remaining unapplied)
+
+        deposit_account is the GL account of the bank deposit the payment is
+        linked to. A payment recorded before (or without) its deposit debits
+        Cash, which acts as undeposited funds; linking it to the deposit later
+        moves that debit (BankTransactionService.link_existing_payment).
         """
         # Prevent duplicate journal entries
         existing = JournalEntry.objects.filter(
@@ -114,9 +120,9 @@ class Payment(models.Model):
             return existing
 
         # Required accounts
-        cash_acct = ChartOfAccount.objects.get(code="1000")
-        ar_acct = ChartOfAccount.objects.get(code="1200")
-        clearing_acct = ChartOfAccount.objects.get(code="2200")  # Liability for unapplied
+        cash_acct = deposit_account or gl_codes.gl_account(gl_codes.CASH)
+        ar_acct = gl_codes.gl_account(gl_codes.ACCOUNTS_RECEIVABLE)  # same account invoices debit
+        clearing_acct = gl_codes.gl_account(gl_codes.UNAPPLIED_PAYMENTS)  # Liability for unapplied
 
         # Amounts
         payment_total = Decimal(self.amount)
