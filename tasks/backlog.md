@@ -18,6 +18,13 @@
 - [ ] **Cookie/transport hardening flagged by `manage.py check --deploy`:** `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_SSL_REDIRECT` and `SECURE_HSTS_SECONDS` are all unset. Not a one-line fix — the backlog item below accepts plain-HTTP LAN access to `books.ardua.lan:8000`, and flipping the cookie flags would break logins over that path. Resolve alongside the HTTPS-on-8000 item.
 - [ ] Consider splitting dev tooling (`black`, `pytest*`, `factory-boy`) into a `requirements-dev.txt` that starts with `-r requirements.txt`. Keeps one authority while dropping test tooling from the production image. Deferred to keep this change tight.
 
+## Ledger repair, after 3.3.4 is merged (2026-11-01)
+
+- [ ] **Back up production, then `repair_ledger_postings --apply`** (Jim). Dry run against production, read-only, 2026-11-01: 48 changes; Cash 19,600.86 → 0; AR on 1100 only, 4,740.83; Owner Equity −59,376.83 → −39,772.69; expenses −2,204.36; all four registers equal their GL accounts. Rehearsed `--apply` on a restored copy: matched the prediction, second run 0 changes, pages render.
+- [ ] **Then match the transfer by hand:** Wells Fargo txn 293 ↔ Marriott txn 488 ("Payment Thank You-Mobile", +1.64), and link Marriott txn 489 (Costco, −1.64) to an expense.
+- [ ] **`Mark as Owner Equity` is broken:** `BankTransactionMarkOwnerEquityView` calls `BankTransactionService.mark_as_owner_equity`, which does not exist; every use shows "Could not mark as equity: …".
+- [ ] **Payment JE dates:** linking a payment updates `payment.date` to the deposit date but not its JE's `posted_at`. Payments 1–6 (QuickBooks import) have JEs dated weeks before their deposits, which shifts AR/cash between periods in dated reports.
+
 ## Bank import data repair, after 3.3.3 is merged (2026-11-01)
 
 Latest exports: `~/Documents/Ardua/Statements/CreditCards/<issuer>/<last4>/2026/2026-01-01_to_2026-10-31_transactions.csv`. Production audit of each, read-only via `books_readonly` (2026-11-01):

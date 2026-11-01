@@ -282,6 +282,35 @@ an import would actually do. Nothing is written. On PostgreSQL it runs in a
 **Fixing an account it reports short:** re-import the same file through the
 web UI. Only the missing rows are added.
 
+#### Repair Ledger Postings (3.3.4)
+
+Repairs journal entries posted by four bugs fixed in 3.3.4. **Dry run by
+default**: it prints every change, the trial balance before and after, and
+each bank register against its GL account, and writes nothing.
+
+```bash
+python manage.py repair_ledger_postings            # dry run (read-only)
+python manage.py repair_ledger_postings --apply    # back up the database first
+```
+
+| Step | Finds | Repair |
+|---|---|---|
+| 1 | Deposits linked to payments | Delete the deposit's import JE; move the payment JE's Cash debit to the deposit's GL account |
+| 2 | Payment credits on AR 1200 | Move them to AR 1100 (the account invoices use); deactivate 1200 once empty |
+| 3 | Credits (refunds) linked to expenses, posted as charges | Rebuild as DR bank / CR expense; make the expense negative |
+| 4 | Transfers pairing two withdrawals (or two deposits) | Unpair; restore each import JE against Owner Equity; print the likely real counterpart |
+
+Problems are found from the data, not fixed ids, so a second run reports
+"0 change(s) found". Anything ambiguous is skipped with a warning rather
+than guessed. `--apply` runs in one transaction and rolls back if the
+resulting balances differ from the dry run's prediction; it refuses to start
+if any bank register would still differ from its GL account.
+
+The dry run works under the `books_readonly` login, so it can be checked
+against live data from homer before anyone applies it. After applying in
+production, match Wells Fargo txn 293 to Marriott txn 488 ("Payment Thank
+You-Mobile") as a transfer, and link Marriott txn 489 (Costco) to an expense.
+
 #### Standard Django Commands
 
 ```bash

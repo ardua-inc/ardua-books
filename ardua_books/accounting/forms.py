@@ -238,12 +238,13 @@ class BankTransactionLinkExpenseForm(forms.Form):
         # Candidate expenses:
         # - Not already linked to a bank transaction
         # - payment_account not set yet (unlinked) or null
-        # - Amount matches (abs)
+        # - Amount mirrors the transaction: a charge matches a positive expense,
+        #   a credit (refund) a negative one (see BankTransactionService.link_expense)
         self.fields["expense"].queryset = (
             Expense.objects
             .filter(payment_account__isnull=True)  # Not yet linked to any bank account
             .filter(bank_transactions__isnull=True)  # Not already matched to a bank txn
-            .filter(amount=abs(txn.amount))
+            .filter(amount=-txn.amount)
             .select_related("category")
             .order_by("-expense_date")
         )
@@ -286,16 +287,15 @@ class BankTransactionMatchTransferForm(forms.Form):
 
         # Find candidate transactions:
         # - Different bank account
-        # - Same absolute amount
+        # - Opposite amount: money leaving one account arrives in the other
         # - Not already matched (no payment, expense, or transfer_pair)
-        amt = abs(source_txn.amount)
         self.fields["target_transaction"].queryset = (
             BankTransaction.objects
             .exclude(bank_account=source_txn.bank_account)
             .filter(payment__isnull=True)
             .filter(expense__isnull=True)
             .filter(transfer_pair__isnull=True)
-            .filter(amount__in=[amt, -amt])
+            .filter(amount=-source_txn.amount)
             .select_related("bank_account")
             .order_by("-date")
         )

@@ -4,6 +4,14 @@ All notable changes to Ardua Books are recorded here. The canonical version
 number lives in `ardua_books/ardua_books/settings.py` (`VERSION`) and is
 surfaced by the `/about/` page.
 
+## [3.3.4] - 2026-11-01
+
+- Linking a bank deposit to a client payment now leaves exactly one journal entry: the payment's, debiting the deposit's own GL account. Previously the deposit's import entry (DR bank / CR Owner Equity) stayed live and the payment debited 1000 Cash, so every linked receipt was counted twice (production: 12 payments, $19,600.86 in Cash that was really in Wells Fargo, Owner Equity overstated by the same). A payment recorded without a deposit still debits 1000 Cash (undeposited funds) until it is linked. A payment can no longer be linked to two deposits.
+- Payments credit Accounts Receivable 1100, the account invoices debit. They credited a second "Accounts Receivable", 1200, since the QuickBooks import (production: −$12,442.49 on 1200 against $17,183.32 on 1100). GL codes now live in one module, `accounting/gl_codes.py`.
+- A credit (refund or statement credit) linked to an expense is posted as a contra-expense (DR bank / CR expense) and recorded as a negative expense. It was posted as a charge, overstating expenses by twice the amount (production: 7 transactions, $2,204.36). Linking a credit to a positive expense, or a charge to a negative one, is refused.
+- A transfer must pair one withdrawal with one deposit or payment; the transfer form only offers opposite amounts. Two same-sized withdrawals could be paired and were posted backwards (production: Wells Fargo txn 293 with Marriott's Costco charge 489).
+- New `repair_ledger_postings` command repairs data posted by these bugs. Dry run by default (read-only, and runnable under `books_readonly`); `--apply` makes every change in one transaction and rolls back unless the result matches the dry run and every bank register equals its GL account.
+
 ## [3.3.3] - 2026-11-01
 
 - Bank CSV import counts duplicates instead of collapsing them. Genuinely repeated transactions (identical date, description and amount, e.g. two same-day Uber charges) are all imported. Re-importing a file, or a grown year-to-date file, still adds only the rows not already present. Previously such repeats were silently dropped, and production's Amex account was short 6 charges ($5.77).

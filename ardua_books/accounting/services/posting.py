@@ -2,16 +2,16 @@ from django.db import transaction
 from django.contrib.contenttypes.models import ContentType
 
 from billing.models import Invoice, InvoiceStatus
+from accounting import gl_codes
 from accounting.models import (
-    ChartOfAccount,
     JournalEntry,
     JournalLine,
 )
 
 
 def _get_default_accounts():
-    ar = ChartOfAccount.objects.get(code="1100")
-    revenue = ChartOfAccount.objects.get(code="4000")
+    ar = gl_codes.gl_account(gl_codes.ACCOUNTS_RECEIVABLE)
+    revenue = gl_codes.gl_account(gl_codes.REVENUE)
     return ar, revenue
 
 
