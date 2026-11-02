@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Apply Unapplied Balance</h2>
+
+<p>
+  Payment #{{ payment.id }} from {{ payment.client }} on {{ payment.date }}:
+  ${{ payment.amount|floatformat:2 }}, of which <strong>${{ payment.unapplied_amount|floatformat:2 }}</strong> is unapplied.
+</p>
+<p class="text-muted">
+  Applying it records DR Unapplied Payments / CR Accounts Receivable and reduces the invoice's balance.
+</p>
+
+{% if form.fields.invoice.queryset.exists %}
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button class="btn btn-primary">Apply</button>
+  <a href="{% url 'accounting:payment_detail' payment.pk %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% else %}
+  <p>{{ payment.client }} has no invoice with a balance outstanding.</p>
+  <a href="{% url 'accounting:payment_detail' payment.pk %}" class="btn btn-secondary">Back</a>
+{% endif %}
+
+{% endblock %}

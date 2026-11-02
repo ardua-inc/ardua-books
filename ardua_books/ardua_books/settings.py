@@ -55,7 +55,7 @@ DEBUG = _env_flag("DJANGO_DEBUG", False)
 # VERSION: Manually updated semantic version (update when releasing)
 # APP_VERSION: Git commit SHA (auto-set during Docker build)
 # APP_COMMIT_DATE: Git commit timestamp (auto-set during Docker build)
-VERSION = "3.3.5"
+VERSION = "3.3.6"
 APP_VERSION = os.getenv("APP_VERSION", "dev")
 APP_COMMIT_DATE = os.getenv("APP_COMMIT_DATE", "")
 

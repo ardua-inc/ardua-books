@@ -4,6 +4,15 @@ All notable changes to Ardua Books are recorded here. The canonical version
 number lives in `ardua_books/ardua_books/settings.py` (`VERSION`) and is
 surfaced by the `/about/` page.
 
+## [3.3.6] - 2026-11-01
+
+- New accounts 2500 Loan from Shareholder, 6110 Rent, 6120 Vehicle Expenses and 6130 Repairs & Maintenance, with matching expense categories (data migration; existing codes are left alone).
+- Recategorize an unmatched bank transaction to any account, one at a time or by ticking several in the register (all or none); the register can search descriptions. Bank and card accounts are never offered as an offset, since their GL account moves only with their register.
+- Expenses paid outside the business accounts: an expense's new *Paid from* account (e.g. 2500) posts DR expense / CR that account; editing rebuilds the entry and deleting removes it. Linking such an expense to a bank transaction is refused until its funding account is cleared; a split purchase is two expenses. The 7 existing unposted expenses are left as they are.
+- Manual journal entries (balanced, two or more lines, no bank or card accounts) with a reverse action; listed in the journal with a Manual badge.
+- Apply a payment's unapplied balance to an invoice: DR 2200 / CR AR, and the invoice's balance and status follow.
+- Unmatch an expense link or a transfer: the match's entry is deleted and the transaction is posted against a chosen account (Owner Equity by default). Deleting a matched expense now unmatches its transaction instead of leaving its journal entry behind.
+
 ## [3.3.5] - 2026-11-01
 
 - "Mark as Owner Equity" in the bank register works. It called a service method that did not exist, so every use failed with "Could not mark as equity". It re-posts an unmatched transaction against Owner Equity 3000 (a deposit as a contribution, a withdrawal as a draw), rebuilding its journal entry in place, or creating one if it has none. A transaction matched to a payment, expense or transfer is refused, since its entry belongs to that match.

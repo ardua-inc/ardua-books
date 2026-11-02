@@ -23,8 +23,24 @@
 - [x] **Back up production, then `repair_ledger_postings --apply`** (Jim). Done 2026-11-01: backup `/opt/ardua_books/manual-backups/ardua_books-pre-3.3.4-repair-20261101T220256Z.dump` (also in `s3://ardua-books-backups/manual/`); after apply, a re-run finds 0 changes. Dry run against production, read-only, 2026-11-01: 48 changes; Cash 19,600.86 → 0; AR on 1100 only, 4,740.83; Owner Equity −59,376.83 → −39,772.69; expenses −2,204.36; all four registers equal their GL accounts. Rehearsed `--apply` on a restored copy: matched the prediction, second run 0 changes, pages render.
 - [x] **Then match the transfer by hand:** done 2026-11-01 and verified (shared transfer JE, DR 1114 / CR 1112; Costco on 6900 Miscellaneous Expense). Wells Fargo txn 293 ↔ Marriott txn 488 ("Payment Thank You-Mobile", +1.64), and link Marriott txn 489 (Costco, −1.64) to an expense.
 - [x] Fixed in 3.3.5. **`Mark as Owner Equity` is broken:** `BankTransactionMarkOwnerEquityView` calls `BankTransactionService.mark_as_owner_equity`, which does not exist; every use shows "Could not mark as equity: …".
-- [ ] **After 3.3.5 deploys: `repair_ledger_postings --apply`** for step 5 (re-dates payments 1–6; dry run 2026-11-01: 6 changes, balances unchanged).
+- [x] **After 3.3.5 deploys: `repair_ledger_postings --apply`** for step 5. Done 2026-11-01 after a fresh backup (`ardua_books-pre-3.3.5-repair-20261101T223932Z.dump`, also in S3 `manual/`): 6 changes, a re-run finds 0, every payment entry dated on its deposit.
 - [x] Fixed in 3.3.5. **Payment JE dates:** linking a payment updates `payment.date` to the deposit date but not its JE's `posted_at`. Payments 1–6 (QuickBooks import) have JEs dated weeks before their deposits, which shifts AR/cash between periods in dated reports.
+
+## Owner funding, after 3.3.6 deploys (2026-11-01)
+
+Rehearsed on a restored copy of production (migrate, then the first two steps): every register equals its GL, all entries balance, `repair_ledger_postings` finds 0 changes.
+
+- [ ] **Apply payment 9's $0.68** (Keep Coming Back) to invoice 670: Payments → payment 9 → *Apply to an invoice…*. Clears 2200 and AR 1100.
+- [ ] **Unmatch Prime Visa txn of 2026-03-30** (−21.80, AMAZON MKTPL*BC3F798J2, the Blackstone thermometer, linked as Office Supplies, expense 560): Unmatch → 2500 (a personal purchase on the business card reduces what Ardua owes) or 3000, and tick *Also delete the expense*.
+- [ ] **Recategorize owner money in to 2500:** Wells Fargo register, All time, Unmatched, search "WEALTHFRONT", then "RAMSEY J" (18 unmatched candidates on the copy, 2025-02 to 2026-10); tick and *Recategorize selected* → 2500. Check each is money from Jim, not income.
+- [ ] **Decide on the 7 unposted "Claude AI Charges" expenses** (Blue Boutique, Professional Services, BILLED; ids 410, 596–599, 769, 770; $341.20). They may duplicate Anthropic charges already expensed from the Amex card. If any were paid personally, set *Paid from* 2500 in admin (BILLED expenses are not editable in the app).
+- [ ] Rent paid to Jim → recategorize those withdrawals to 6110; business share of car registration/insurance → 6120 (bank charge: recategorize; paid personally: funded expense).
+
+## Follow-ups from 3.3.6 (2026-11-01)
+
+- [ ] **Editing a linked expense does not rebuild its bank entry.** Changing the amount or category of an expense linked to a bank transaction leaves the transaction's JE on the old account/amount (predates 3.3.6). Rebuild it on save, or refuse the edit.
+- [ ] **`BankTransactionForm` / `OffsetAccountFilterView` offer other banks' GL accounts** as an offset for a manually entered transaction, which breaks register == GL for the other account. Use `non_bank_accounts()`.
+- [ ] **Unmatch a payment link** (move the payment JE's debit back to Cash, restore the import entry).
 
 ## Bank import data repair, after 3.3.3 is merged (2026-11-01)
 

@@ -17,7 +17,9 @@ class JournalLineInline(admin.TabularInline):
 @admin.register(JournalEntry)
 class JournalEntryAdmin(admin.ModelAdmin):
     inlines = [JournalLineInline]
-    list_display = ("id", "posted_at", "posted_by", "description")
+    list_display = ("id", "posted_at", "posted_by", "description", "is_manual")
+    list_filter = ("is_manual",)
+    readonly_fields = ("is_manual",)
 
 
 @admin.register(BankAccount)

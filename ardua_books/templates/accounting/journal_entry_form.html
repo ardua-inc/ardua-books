@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+  <h1>New Journal Entry</h1>
+
+  <p class="text-muted">
+    For adjustments and reclassifications, such as moving an amount from Owner Equity to Loan from
+    Shareholder. Debits must equal credits. Bank and card accounts are not listed: their activity
+    comes from the register (import it, then recategorize or match it).
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    {% if entry_error %}<div class="alert alert-danger">{{ entry_error }}</div>{% endif %}
+    {{ form.non_field_errors }}
+    <p>{{ form.date.label_tag }} {{ form.date }} {{ form.date.errors }}</p>
+    <p>{{ form.memo.label_tag }} {{ form.memo }} {{ form.memo.errors }}</p>
+
+    {{ formset.management_form }}
+    {{ formset.non_form_errors }}
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="text-left">Account</th>
+          <th class="text-right">Debit</th>
+          <th class="text-right">Credit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in formset %}
+        <tr>
+          <td>{{ line.account }}{{ line.non_field_errors }}{{ line.account.errors }}</td>
+          <td>{{ line.debit }}{{ line.debit.errors }}</td>
+          <td>{{ line.credit }}{{ line.credit.errors }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <button class="btn btn-primary">Post Entry</button>
+    <a href="{% url 'accounting:journal_list' %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

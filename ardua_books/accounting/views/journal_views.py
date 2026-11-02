@@ -3,12 +3,17 @@ General Ledger / Journal Entry views.
 """
 from datetime import date, timedelta
 
+from django.contrib import messages
 from django.core.paginator import Paginator
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views import View
 from django.views.generic import ListView, DetailView, TemplateView
 
+from accounting.forms import ManualJournalEntryForm, ManualJournalLineFormSet, ReverseEntryForm
 from accounting.models import JournalEntry, JournalLine
-from accounting.views.mixins import FilterPersistenceMixin
+from accounting.services.journal import JournalEntryService
+from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin
 
 
 class JournalEntryListView(LoginRequiredMixin, FilterPersistenceMixin, TemplateView):
@@ -107,4 +112,54 @@ class JournalEntryDetailView(LoginRequiredMixin, DetailView):
         if entry.source_object:
             context["source_object"] = entry.source_object
 
+        context["reverses"] = entry.reverses
+        context["reversed_by"] = entry.reversed_by
+        context["can_reverse"] = entry.is_manual and not context["reverses"] and not context["reversed_by"]
+        if context["can_reverse"]:
+            context["reverse_form"] = ReverseEntryForm()
         return context
+
+
+class ManualJournalEntryCreateView(LoginRequiredMixin, ReadOnlyUserMixin, View):
+    """Enter a balanced journal entry by hand (JournalEntryService.create_manual_entry)."""
+    template_name = "accounting/journal_entry_form.html"
+
+    def get(self, request):
+        return render(request, self.template_name, {
+            "form": ManualJournalEntryForm(),
+            "formset": ManualJournalLineFormSet(prefix="lines"),
+        })
+
+    def post(self, request):
+        form = ManualJournalEntryForm(request.POST)
+        formset = ManualJournalLineFormSet(request.POST, prefix="lines")
+        context = {"form": form, "formset": formset}
+        if not (form.is_valid() and formset.is_valid()):
+            return render(request, self.template_name, context)
+        try:
+            je = JournalEntryService.create_manual_entry(
+                form.cleaned_data["date"], form.cleaned_data["memo"], formset.lines(), user=request.user,
+            )
+        except ValueError as e:
+            context["entry_error"] = str(e)
+            return render(request, self.template_name, context)
+        messages.success(request, f"Journal entry #{je.id} posted.")
+        return redirect("accounting:journal_detail", pk=je.id)
+
+
+class JournalEntryReverseView(LoginRequiredMixin, ReadOnlyUserMixin, View):
+    """Post the reversal of a manual entry (from its detail page)."""
+
+    def post(self, request, pk):
+        je = get_object_or_404(JournalEntry, pk=pk)
+        form = ReverseEntryForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Enter a valid reversal date.")
+            return redirect("accounting:journal_detail", pk=je.id)
+        try:
+            reversal = JournalEntryService.reverse_entry(je, form.cleaned_data["date"], user=request.user)
+        except ValueError as e:
+            messages.error(request, f"Could not reverse: {e}")
+            return redirect("accounting:journal_detail", pk=je.id)
+        messages.success(request, f"JE #{je.id} reversed by JE #{reversal.id}.")
+        return redirect("accounting:journal_detail", pk=reversal.id)

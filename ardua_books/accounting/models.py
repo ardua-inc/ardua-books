@@ -53,8 +53,29 @@ class JournalEntry(models.Model):
     source_object_id = models.PositiveIntegerField(null=True, blank=True)
     source_object = GenericForeignKey("source_content_type", "source_object_id")
 
+    # Entered by hand (accounting.services.journal), not posted by a payment,
+    # invoice, expense or bank transaction. A reversal is also manual, with the
+    # entry it reverses as its source.
+    is_manual = models.BooleanField(default=False)
+
     def __str__(self):
         return f"JE #{self.id} ({self.posted_at.date()})"
+
+    @property
+    def reverses(self):
+        """The entry this one reverses, or None."""
+        if self.is_manual and self.source_content_type_id == ContentType.objects.get_for_model(JournalEntry).id:
+            return JournalEntry.objects.filter(pk=self.source_object_id).first()
+        return None
+
+    @property
+    def reversed_by(self):
+        """The reversal of this entry, or None."""
+        return JournalEntry.objects.filter(
+            is_manual=True,
+            source_content_type=ContentType.objects.get_for_model(JournalEntry),
+            source_object_id=self.id,
+        ).first()
 
 
 class JournalLine(models.Model):

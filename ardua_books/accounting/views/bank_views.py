@@ -23,6 +23,9 @@ from accounting.forms import (
     LinkPaymentToTransactionForm,
     BankTransactionLinkExpenseForm,
     BankTransactionMatchTransferForm,
+    BulkRecategorizeForm,
+    RecategorizeForm,
+    UnmatchForm,
     ExpenseMatchFormSet,
     PaymentMatchFormSet,
     TransactionRuleForm,
@@ -181,7 +184,7 @@ class BankRegisterView(LoginRequiredMixin, FilterPersistenceMixin, TemplateView)
     template_name = "accounting/bank_register.html"
 
     # Filter persistence settings
-    filter_params = ["date_preset", "date_from", "date_to", "show", "per_page", "sort"]
+    filter_params = ["date_preset", "date_from", "date_to", "show", "q", "per_page", "sort"]
 
     # Pagination settings
     DEFAULT_PAGE_SIZE = 50
@@ -205,6 +208,7 @@ class BankRegisterView(LoginRequiredMixin, FilterPersistenceMixin, TemplateView)
         date_from = self.request.GET.get("date_from", "")
         date_to = self.request.GET.get("date_to", "")
         show_filter = self.request.GET.get("show", "all")
+        search = self.request.GET.get("q", "").strip()
 
         # Determine date range
         if date_preset == "mtd":
@@ -245,6 +249,9 @@ class BankRegisterView(LoginRequiredMixin, FilterPersistenceMixin, TemplateView)
             tx_qs = tx_qs.filter(date__gte=from_date)
         if to_date:
             tx_qs = tx_qs.filter(date__lte=to_date)
+
+        if search:
+            tx_qs = tx_qs.filter(description__icontains=search)
 
         # Filter by matched/unmatched
         if show_filter == "unmatched":
@@ -312,6 +319,8 @@ class BankRegisterView(LoginRequiredMixin, FilterPersistenceMixin, TemplateView)
             "date_from": date_from if not date_preset else "",
             "date_to": date_to if not date_preset else "",
             "show_filter": show_filter,
+            "search": search,
+            "recategorize_form": BulkRecategorizeForm(bank_account=bank_account),
             "per_page": page_size,
             "page_size_options": self.PAGE_SIZE_OPTIONS,
             "sort": sort_param,
@@ -459,6 +468,90 @@ class BankTransactionMarkOwnerEquityView(LoginRequiredMixin, ReadOnlyUserMixin, 
 
         messages.success(request, "Transaction recorded as Owner Equity.")
         return redirect("accounting:bankaccount_register", pk=txn.bank_account_id)
+
+class BankTransactionRecategorizeView(LoginRequiredMixin, ReadOnlyUserMixin, View):
+    """Recategorize one unmatched transaction to any non-bank account."""
+    template_name = "accounting/banktxn_recategorize.html"
+
+    def get(self, request, txn_id):
+        txn = get_object_or_404(BankTransaction, pk=txn_id)
+        form = RecategorizeForm(initial={"offset_account": txn.offset_account_id})
+        return render(request, self.template_name, {"txn": txn, "form": form})
+
+    def post(self, request, txn_id):
+        txn = get_object_or_404(BankTransaction, pk=txn_id)
+        form = RecategorizeForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"txn": txn, "form": form})
+        account = form.cleaned_data["offset_account"]
+        try:
+            BankTransactionService.retag_transaction(txn, account)
+        except ValueError as e:
+            messages.error(request, f"Could not recategorize: {e}")
+            return render(request, self.template_name, {"txn": txn, "form": form})
+        messages.success(request, f"Transaction recategorized to {account}.")
+        return redirect("accounting:bankaccount_register", pk=txn.bank_account_id)
+
+
+class BankTransactionBulkRecategorizeView(LoginRequiredMixin, ReadOnlyUserMixin, View):
+    """The register's "Recategorize selected": all the ticked transactions, or none."""
+
+    def post(self, request, pk):
+        bank_account = get_object_or_404(BankAccount, pk=pk)
+        form = BulkRecategorizeForm(request.POST, bank_account=bank_account)
+        if not form.is_valid():
+            for errors in form.errors.values():
+                for error in errors:
+                    messages.error(request, error)
+            return redirect("accounting:bankaccount_register", pk=pk)
+        account = form.cleaned_data["offset_account"]
+        txns = form.cleaned_data["txn_ids"]
+        try:
+            BankTransactionService.retag_transactions(bank_account, txns, account)
+        except ValueError as e:
+            messages.error(request, f"Nothing was recategorized. {e}")
+            return redirect("accounting:bankaccount_register", pk=pk)
+        messages.success(request, f"Recategorized {len(txns)} transaction(s) to {account}.")
+        return redirect("accounting:bankaccount_register", pk=pk)
+
+
+class BankTransactionUnmatchView(LoginRequiredMixin, ReadOnlyUserMixin, View):
+    """Undo an expense link or transfer match (BankTransactionService.unmatch)."""
+    template_name = "accounting/banktxn_unmatch.html"
+
+    def _context(self, txn, form):
+        expense = txn.expense
+        return {
+            "txn": txn,
+            "form": form,
+            "expense": expense,
+            "expense_deletable": expense is not None and BankTransactionService.expense_deletable(expense),
+        }
+
+    def get(self, request, txn_id):
+        txn = get_object_or_404(BankTransaction, pk=txn_id)
+        if not (txn.expense_id or txn.transfer_pair_id):
+            messages.error(request, "Only an expense link or a transfer can be unmatched.")
+            return redirect("accounting:bankaccount_register", pk=txn.bank_account_id)
+        return render(request, self.template_name, self._context(txn, UnmatchForm()))
+
+    def post(self, request, txn_id):
+        txn = get_object_or_404(BankTransaction, pk=txn_id)
+        form = UnmatchForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, self._context(txn, form))
+        try:
+            BankTransactionService.unmatch(
+                txn,
+                offset_account=form.cleaned_data["offset_account"],
+                delete_expense=form.cleaned_data["delete_expense"],
+            )
+        except ValueError as e:
+            messages.error(request, f"Could not unmatch: {e}")
+            return render(request, self.template_name, self._context(txn, form))
+        messages.success(request, f"Transaction unmatched and posted to {form.cleaned_data['offset_account']}.")
+        return redirect("accounting:bankaccount_register", pk=txn.bank_account_id)
+
 
 @login_required
 @readonly_user_check
@@ -698,6 +791,7 @@ class BatchMatchExpensesView(LoginRequiredMixin, ReadOnlyUserMixin, FilterPersis
             potential_expenses = (
                 Expense.objects
                 .filter(payment_account__isnull=True)
+                .filter(funding_account__isnull=True)  # Funded expenses are posted already
                 .filter(amount=abs(txn.amount))
                 .select_related("category", "client")
                 .order_by("-expense_date")

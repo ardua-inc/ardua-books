@@ -14,6 +14,19 @@
       {% endif %}
     </p>
 
+    {% for txn in object.bank_transactions.all %}
+      <div class="alert alert-warning">
+        This expense is matched to the {{ txn.bank_account }} transaction of {{ txn.date }}
+        ({{ txn.description }}, {{ txn.amount }}). Deleting it unmatches that transaction, which
+        returns to Owner Equity as unmatched; recategorize or match it again afterwards.
+      </div>
+    {% endfor %}
+    {% if object.funding_entry %}
+      <div class="alert alert-info">
+        Its journal entry (JE #{{ object.funding_entry.pk }}, paid from {{ object.funding_account }}) is deleted with it.
+      </div>
+    {% endif %}
+
     <form method="post">
       {% csrf_token %}
       <button type="submit" class="btn btn-primary">Yes, delete</button>

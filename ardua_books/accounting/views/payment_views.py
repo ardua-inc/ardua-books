@@ -16,6 +16,7 @@ from django.views import View
 from django.views.generic import ListView, DetailView, FormView
 
 from accounting.forms import (
+    ApplyUnappliedForm,
     PaymentForInvoiceForm,
     PaymentGeneralForm,
     PaymentAllocationFormSet,
@@ -29,6 +30,7 @@ from accounting.models import (
 )
 from accounting.services.payment_allocation import build_formset
 from accounting.services.banking import BankTransactionService
+from accounting.services.payments import PaymentService
 from billing.models import Client, Invoice, InvoiceStatus
 from accounting.views.mixins import FilterPersistenceMixin, ReadOnlyUserMixin
 
@@ -494,3 +496,28 @@ def payment_invoice_fragment(request):
             "formset": formset,
         },
     )
+
+
+class PaymentApplyUnappliedView(LoginRequiredMixin, ReadOnlyUserMixin, View):
+    """Apply some of a payment's unapplied balance to one of the client's invoices."""
+    template_name = "accounting/payment_apply_unapplied.html"
+
+    def get(self, request, pk):
+        payment = get_object_or_404(Payment, pk=pk)
+        form = ApplyUnappliedForm(payment=payment)
+        return render(request, self.template_name, {"payment": payment, "form": form})
+
+    def post(self, request, pk):
+        payment = get_object_or_404(Payment, pk=pk)
+        form = ApplyUnappliedForm(request.POST, payment=payment)
+        if not form.is_valid():
+            return render(request, self.template_name, {"payment": payment, "form": form})
+        invoice = form.cleaned_data["invoice"]
+        amount = form.cleaned_data["amount"]
+        try:
+            PaymentService.apply_unapplied(payment, invoice, amount, form.cleaned_data["date"], user=request.user)
+        except ValueError as e:
+            form.add_error(None, str(e))
+            return render(request, self.template_name, {"payment": payment, "form": form})
+        messages.success(request, f"Applied ${amount} to invoice {invoice.invoice_number}.")
+        return redirect("accounting:payment_detail", pk=payment.pk)

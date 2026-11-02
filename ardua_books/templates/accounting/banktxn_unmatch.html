@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Unmatch Transaction</h2>
+
+<ul>
+  <li>Account: {{ txn.bank_account }}</li>
+  <li>Date: {{ txn.date }}</li>
+  <li>Description: {{ txn.description }}</li>
+  <li>Amount: {{ txn.amount }}</li>
+</ul>
+
+{% if expense %}
+  <p>
+    It is linked to the expense
+    <a href="{% url 'billing:expense_detail' expense.pk %}">{{ expense.category.name }}: {{ expense.description|default:expense.amount }}</a>.
+    Unmatching deletes the expense's journal entry and posts the transaction against the account below.
+  </p>
+{% elif txn.transfer_pair %}
+  <p>
+    It is matched as a transfer with the {{ txn.transfer_pair.bank_account }} transaction of
+    {{ txn.transfer_pair.date }} ({{ txn.transfer_pair.description }}, {{ txn.transfer_pair.amount }}).
+    Unmatching deletes the transfer's journal entry and posts <strong>both</strong> transactions
+    against the account below.
+  </p>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <p>
+    {{ form.offset_account.label_tag }} {{ form.offset_account }}
+    <small class="text-muted d-block">{{ form.offset_account.help_text }}</small>
+  </p>
+  {% if expense %}
+    {% if expense_deletable %}
+      <p><label class="checkbox-label">{{ form.delete_expense }} {{ form.delete_expense.label }}</label></p>
+    {% else %}
+      <p class="text-muted">The expense is on an invoice, so it is kept.</p>
+    {% endif %}
+  {% endif %}
+  <button class="btn btn-warning">Unmatch</button>
+  <a href="{% url 'accounting:bankaccount_register' txn.bank_account.id %}" class="btn btn-secondary">Cancel</a>
+</form>
+
+{% endblock %}
