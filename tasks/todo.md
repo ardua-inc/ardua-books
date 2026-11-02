@@ -1,3 +1,23 @@
+# Owner funding, recategorize, manual JEs, apply unapplied, unmatch (3.3.6)
+
+Spec: ~/.hermes/profiles/claude/cache/scratch/ardua-books-owner-funding-prompt.md (A-F)
+Plan: ~/.claude/plans/zippy-roaming-rose.md (approved 2026-11-01)
+Branch: feat/owner-funding (PR; main deploys to production; no production writes)
+
+- [x] A: gl_codes 2500/6110/6120/6130; data migrations for accounts + categories
+- [x] B: recategorize (single + bulk, register description search); no bank-backed offsets
+- [x] C: Expense.funding_account/funding_entry; sync on save, clean up on delete; link refuses funded
+- [x] D: manual journal entries + reverse (JournalEntry.is_manual)
+- [x] E: apply a payment's unapplied balance to an invoice (DR 2200 / CR AR)
+- [x] F: unmatch expense links and transfers; expense delete unmatches cleanly
+- [x] Tests (shared helpers to accounting/tests/conftest.py); fail on main, pass on branch; full suite
+- [x] Docs, CHANGELOG, VERSION 3.3.6; PR
+
+## Review
+- Tests: 228 passed (67 new in test_owner_funding.py; shared fixtures moved to accounting/tests/conftest.py and helpers.py, test_ledger_postings unchanged otherwise). Against main, the two behaviour changes to existing code fail as expected: retag to another bank's account broke that card's register == GL, and deleting a matched expense left its JE orphaned. The other new tests exercise code main does not have.
+- Rehearsal on a fresh restored copy of production (1,100 JEs; local Postgres 15): migrations 0016/0007 apply; apply payment 9's 0.68 -> 2200 and AR 1100 both 0, invoice 670 PAID with 0 outstanding; unmatch txn 659 -> 2500; repair_ledger_postings finds 0 changes; every register == GL, every JE balances. Cluster stopped, dump deleted.
+- Not done (flagged in backlog): editing a linked expense does not rebuild its bank JE; manual bank-transaction form offers other banks' GL accounts; unmatching payment links.
+
 # Mark as Owner Equity + payment JE dates (3.3.5)
 
 Branch: fix/owner-equity-and-payment-dates (PR; main deploys to production)

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Recategorize Transaction</h2>
+
+<ul>
+  <li>Date: {{ txn.date }}</li>
+  <li>Description: {{ txn.description }}</li>
+  <li>Amount: {{ txn.amount }}</li>
+  <li>Currently: {% if txn.offset_account %}{{ txn.offset_account.code }} — {{ txn.offset_account.name }}{% else %}—{% endif %}</li>
+</ul>
+
+<p class="text-muted">
+  The transaction's journal entry is rebuilt against the account you choose. Money the owner
+  puts in, or takes out, is usually Loan from Shareholder.
+</p>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button class="btn btn-primary">Recategorize</button>
+  <a href="{% url 'accounting:bankaccount_register' txn.bank_account.id %}" class="btn btn-secondary">Cancel</a>
+</form>
+
+{% endblock %}

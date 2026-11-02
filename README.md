@@ -22,6 +22,9 @@ MIT License © 2026 Ardua, Inc.
 - **Payment Tracking** – Record payments, allocate to invoices, track unapplied amounts
 - **Bank Accounts** – Track checking, savings, credit card, and cash accounts
 - **Bank Transaction Import** – CSV import with configurable column mapping and sign rules. Safe to re-import a growing year-to-date file: rows already present are skipped, while genuinely repeated transactions (two identical charges on the same day) are all kept
+- **Recategorize & Unmatch** – Move an unmatched bank transaction to any account (one at a time, or tick several in the register), and undo an expense link or transfer match
+- **Owner-funded Expenses** – Expenses paid outside the business accounts post against a funding account such as 2500 Loan from Shareholder
+- **Manual Journal Entries** – Balanced adjustments and reclassifications, corrected by reversing
 
 ### Reporting
 - **Trial Balance** – Aggregated debits/credits with date filtering
@@ -41,6 +44,43 @@ All list views support:
 - **Offline Caching** – Service worker caches shell and static assets
 
 ---
+
+## Owner Funding and Corrections (3.3.6)
+
+Money the owner puts into Ardua, and business purchases the owner pays for personally,
+are a **loan from the shareholder** (2500), not Owner Equity. Migration
+`billing 0007` adds 2500 Loan from Shareholder, 6110 Rent, 6120 Vehicle Expenses
+and 6130 Repairs & Maintenance, with matching expense categories (accounts that
+already exist are left alone).
+
+- **Recategorize a bank transaction.** Register → Match → *Recategorize…* re-posts
+  an unmatched transaction against any account (e.g. a transfer in from personal
+  checking or Wealthfront → 2500). To do several at once, search the register
+  ("Description contains"), tick the rows and use *Recategorize selected*; the
+  batch is all or none. *Mark as Owner Equity* remains as a shortcut.
+- **Unmatch.** A transaction linked to an expense, or matched as a transfer, has
+  an *Unmatch* link in the register. The match's journal entry is deleted and the
+  transaction (both, for a transfer) is posted against the account you choose
+  (Owner Equity by default); the expense can be deleted at the same time unless
+  it is on an invoice. Deleting a matched expense unmatches its transaction the
+  same way. Payment links cannot be unmatched yet.
+- **Expenses paid outside the business accounts.** Set *Paid from* on the expense
+  (e.g. 2500): it posts DR the category's account / CR that account, and edits and
+  deletes keep the entry in step. An expense is either funded or linked to a bank
+  transaction, never both: linking a funded expense is refused until its funding
+  account is cleared, so nothing changes what Ardua owes the owner without a
+  deliberate edit. A purchase paid partly by card and partly another way is two
+  expenses, one linked to the card charge and one funded.
+- **Manual journal entries.** Journal → *New Journal Entry*: date, memo and two or
+  more lines whose debits equal credits. Bank and card accounts are not offered
+  (their GL moves only with the register). A manual entry is corrected with
+  *Reverse this entry* on its detail page.
+- **Apply an unapplied payment balance.** Payment detail → *Apply to an invoice…*
+  moves an amount from 2200 Unapplied Payments to Accounts Receivable and
+  updates the invoice's balance and status.
+
+None of these can post to a bank or card account's GL account outside its
+register, so every register still equals its GL account.
 
 ## Tech Stack
 
@@ -312,7 +352,7 @@ against live data from homer before anyone applies it. After applying in
 production, match Wells Fargo txn 293 to Marriott txn 488 ("Payment Thank
 You-Mobile") as a transfer, and link Marriott txn 489 (Costco) to an expense.
 Steps 1–4 were applied to production on 2026-11-01 and the transfer was
-re-matched; after 3.3.5 deploys, `--apply` again to run step 5 (6 changes).
+re-matched; step 5 was applied after 3.3.5 deployed, the same day (6 changes).
 
 #### Standard Django Commands
 

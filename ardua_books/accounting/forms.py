@@ -1,4 +1,6 @@
 
+from decimal import Decimal
+
 from django import forms
 from django.forms import formset_factory
 from .models import Payment, PaymentMethod, BankAccountType, ChartOfAccount, AccountType, TransactionRule
@@ -244,6 +246,7 @@ class BankTransactionLinkExpenseForm(forms.Form):
             Expense.objects
             .filter(payment_account__isnull=True)  # Not yet linked to any bank account
             .filter(bank_transactions__isnull=True)  # Not already matched to a bank txn
+            .filter(funding_account__isnull=True)  # Funded expenses are posted already
             .filter(amount=-txn.amount)
             .select_related("category")
             .order_by("-expense_date")
@@ -433,3 +436,152 @@ class TransactionRuleForm(forms.ModelForm):
         self.fields["category"].queryset = (
             ExpenseCategory.objects.filter(account__isnull=False).order_by("name")
         )
+
+# ---------------------------------------------------------------------------
+# Recategorize, unmatch, manual journal entries, apply unapplied (3.3.6)
+# ---------------------------------------------------------------------------
+
+def _offset_account_field(**kwargs):
+    from accounting.services.banking import non_bank_accounts
+
+    return forms.ModelChoiceField(
+        queryset=non_bank_accounts(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+        **kwargs,
+    )
+
+
+class RecategorizeForm(forms.Form):
+    offset_account = _offset_account_field(
+        label="Category (offset account)",
+        help_text="Bank and card accounts are not listed: use Match Transfer for money between them.",
+    )
+
+
+class BulkRecategorizeForm(forms.Form):
+    """The register's "Recategorize selected": its checkboxes are txn_ids."""
+    offset_account = _offset_account_field(label="Recategorize selected to")
+    txn_ids = forms.ModelMultipleChoiceField(
+        queryset=None, error_messages={"required": "Select at least one transaction."},
+    )
+
+    def __init__(self, *args, bank_account, **kwargs):
+        from accounting.models import BankTransaction
+
+        super().__init__(*args, **kwargs)
+        self.fields["txn_ids"].queryset = BankTransaction.objects.filter(bank_account=bank_account)
+
+
+class UnmatchForm(forms.Form):
+    offset_account = _offset_account_field(
+        label="Return the transaction to",
+        help_text="Owner Equity is where imports land; you can also recategorize it later.",
+    )
+    delete_expense = forms.BooleanField(
+        required=False,
+        label="Also delete the expense",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        from accounting import gl_codes
+
+        super().__init__(*args, **kwargs)
+        self.fields["offset_account"].initial = (
+            ChartOfAccount.objects.filter(code=gl_codes.OWNER_EQUITY).values_list("pk", flat=True).first()
+        )
+
+
+class ManualJournalEntryForm(forms.Form):
+    date = forms.DateField(widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}))
+    memo = forms.CharField(max_length=255, widget=forms.TextInput(attrs={"class": "form-control"}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["date"].initial = forms.fields.datetime.date.today
+
+
+class ManualJournalLineForm(forms.Form):
+    account = forms.ModelChoiceField(
+        queryset=ChartOfAccount.objects.none(),
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    debit = forms.DecimalField(
+        max_digits=12, decimal_places=2, min_value=0, required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+    credit = forms.DecimalField(
+        max_digits=12, decimal_places=2, min_value=0, required=False,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        from accounting.services.journal import JournalEntryService
+
+        super().__init__(*args, **kwargs)
+        self.fields["account"].queryset = JournalEntryService.manual_entry_accounts()
+
+    def clean(self):
+        cleaned = super().clean()
+        has_amount = cleaned.get("debit") or cleaned.get("credit")
+        if has_amount and not cleaned.get("account"):
+            raise forms.ValidationError("Choose an account for this line.")
+        if cleaned.get("account") and not has_amount:
+            raise forms.ValidationError("Enter a debit or a credit for this line.")
+        return cleaned
+
+
+class BaseManualJournalLineFormSet(forms.BaseFormSet):
+    def lines(self):
+        """(account, debit, credit) for each line with an account."""
+        return [
+            (f.cleaned_data["account"], f.cleaned_data.get("debit") or 0, f.cleaned_data.get("credit") or 0)
+            for f in self.forms
+            if f.cleaned_data.get("account")
+        ]
+
+
+ManualJournalLineFormSet = formset_factory(
+    ManualJournalLineForm, formset=BaseManualJournalLineFormSet, extra=4,
+)
+
+
+class ReverseEntryForm(forms.Form):
+    date = forms.DateField(
+        label="Reversal date",
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["date"].initial = forms.fields.datetime.date.today
+
+
+class ApplyUnappliedForm(forms.Form):
+    invoice = forms.ModelChoiceField(
+        queryset=Invoice.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    amount = forms.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01"),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+    date = forms.DateField(widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}))
+
+    def __init__(self, *args, payment, **kwargs):
+        from accounting.services.payments import PaymentService
+
+        super().__init__(*args, **kwargs)
+        invoices = PaymentService.invoices_open_to(payment)
+        self.fields["invoice"].queryset = Invoice.objects.filter(pk__in=[i.pk for i in invoices]).order_by("issue_date", "id")
+        self.fields["invoice"].label_from_instance = (
+            lambda inv: f"{inv.invoice_number} ({inv.issue_date}) - ${inv.outstanding_balance()} outstanding"
+        )
+        if not self.is_bound:
+            self.fields["date"].initial = forms.fields.datetime.date.today
+            if len(invoices) == 1:
+                self.fields["invoice"].initial = invoices[0].pk
+                self.fields["amount"].initial = min(payment.unapplied_amount, invoices[0].outstanding_balance())

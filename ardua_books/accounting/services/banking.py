@@ -17,6 +17,21 @@ from accounting.models import (
 
 from billing.models import Invoice
 
+
+def non_bank_accounts():
+    """
+    Active accounts that any posting may name: the chart less the GL accounts
+    behind bank and card accounts. A bank's GL account moves only with a
+    transaction in its register (an import, or a matched transfer), so that
+    register and GL stay equal; posting to it any other way breaks that.
+    """
+    return ChartOfAccount.objects.filter(is_active=True, bank_account__isnull=True).order_by("type", "code")
+
+
+def is_bank_account(account):
+    return BankAccount.objects.filter(account=account).exists()
+
+
 class BankAccountService:
     """
     Handles coordinated creation of BankAccounts,
@@ -413,6 +428,11 @@ class BankTransactionService:
                 "This transaction is matched to a payment, expense or transfer; "
                 "only an unmatched transaction can be recategorized."
             )
+        if is_bank_account(new_offset_account):
+            raise ValueError(
+                f"{new_offset_account} is a bank or card account; money moving between "
+                "accounts is recorded with Match Transfer, not by recategorizing."
+            )
 
         je = txn.journal_entry
         if je is None:
@@ -429,6 +449,26 @@ class BankTransactionService:
         txn.save(update_fields=["offset_account"])
 
         return txn
+
+    @staticmethod
+    @transaction.atomic
+    def retag_transactions(bank_account, txns, new_offset_account):
+        """
+        Recategorize several unmatched transactions of one bank account, all
+        or none: any matched transaction, or one from another account, refuses
+        the whole batch.
+        """
+        txns = list(txns)
+        if not txns:
+            raise ValueError("No transactions selected.")
+        for txn in txns:
+            if txn.bank_account_id != bank_account.id:
+                raise ValueError(f"Transaction {txn} is not in {bank_account}.")
+            try:
+                BankTransactionService.retag_transaction(txn, new_offset_account)
+            except ValueError as e:
+                raise ValueError(f"{txn}: {e}") from e
+        return txns
 
     @staticmethod
     def mark_as_owner_equity(txn):
@@ -470,6 +510,13 @@ class BankTransactionService:
 
         if txn.payment is not None:
             raise ValueError("Bank transaction is already linked to a payment.")
+
+        if expense.funding_account_id is not None:
+            raise ValueError(
+                f"This expense is recorded as paid from {expense.funding_account}, outside the "
+                "business accounts. If the card or bank paid it instead, edit the expense and "
+                "clear its funding account first (that removes its journal entry), then link it."
+            )
 
         if txn.amount > 0 and expense.amount > 0:
             raise ValueError(
@@ -515,6 +562,82 @@ class BankTransactionService:
         txn.save(update_fields=["expense", "offset_account", "journal_entry"])
 
         return expense
+
+    # ----------------------------------------------------------------------
+    # 6b. UNMATCH
+    # ----------------------------------------------------------------------
+    @staticmethod
+    @transaction.atomic
+    def unmatch(txn, offset_account=None, delete_expense=False):
+        """
+        Undo an expense link or a transfer match, returning the transaction
+        (both of them, for a transfer) to unmatched: the match's JE is deleted
+        and an import entry is posted against offset_account (default Owner
+        Equity 3000, where imports land).
+
+        delete_expense also deletes the unlinked expense; an expense already
+        on an invoice is refused. Payment links are not unmatched here.
+        """
+        from billing.models import Expense
+
+        offset = offset_account or gl_codes.gl_account(gl_codes.OWNER_EQUITY)
+
+        if txn.payment_id:
+            raise ValueError(
+                "This transaction is linked to a payment; unmatching a payment is not supported."
+            )
+
+        if txn.expense_id:
+            expense = txn.expense
+            if delete_expense and not BankTransactionService.expense_deletable(expense):
+                raise ValueError(
+                    "This expense is on an invoice, so it cannot be deleted; unmatch it without deleting."
+                )
+            je = txn.journal_entry
+            if je is not None:
+                if not (
+                    je.source_content_type_id == ContentType.objects.get_for_model(Expense).id
+                    and je.source_object_id == expense.id
+                ):
+                    raise ValueError(f"Journal entry {je.id} does not belong to expense {expense.id}.")
+                je.delete()
+            txn.expense = None
+            txn.journal_entry = None
+            txn.save(update_fields=["expense", "journal_entry"])
+            if not expense.bank_transactions.exists():
+                expense.payment_account = None
+                expense.save(update_fields=["payment_account"])
+            BankTransactionService.create_import_entry(txn, offset)
+            if delete_expense:
+                expense.delete()
+            return txn
+
+        if txn.transfer_pair_id:
+            other = txn.transfer_pair
+            je = txn.journal_entry
+            if je is not None:
+                if not (
+                    je.source_content_type_id == ContentType.objects.get_for_model(BankTransaction).id
+                    and je.source_object_id in (txn.id, other.id)
+                ):
+                    raise ValueError(f"Journal entry {je.id} does not belong to this transfer.")
+                je.delete()
+            for side in (txn, other):
+                side.transfer_pair = None
+                side.journal_entry = None
+                side.save(update_fields=["transfer_pair", "journal_entry"])
+            for side in (txn, other):
+                BankTransactionService.create_import_entry(side, offset)
+            return txn
+
+        raise ValueError("This transaction is not matched.")
+
+    @staticmethod
+    def expense_deletable(expense):
+        """An expense already on an invoice is kept: the invoice bills it."""
+        from billing.models import BillableStatus
+
+        return expense.status != BillableStatus.BILLED and not expense.invoice_line_id
 
     # ----------------------------------------------------------------------
     # 7. MATCH INTER-ACCOUNT TRANSFER

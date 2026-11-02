@@ -34,6 +34,8 @@ from accounting.views.report_exports import (
 from accounting.views.journal_views import (
     JournalEntryListView,
     JournalEntryDetailView,
+    ManualJournalEntryCreateView,
+    JournalEntryReverseView,
 )
 
 from accounting.views.payment_views import (
@@ -42,6 +44,7 @@ from accounting.views.payment_views import (
     PaymentCreateGeneralView,
     PaymentCreateFromTransactionView,
     PaymentCreateForInvoiceView,
+    PaymentApplyUnappliedView,
     payment_invoice_fragment,
 )
 
@@ -57,6 +60,9 @@ from accounting.views.bank_views import (
     BankTransactionCSVImportView,
     BankTransactionLinkPaymentView,
     BankTransactionMarkOwnerEquityView,
+    BankTransactionRecategorizeView,
+    BankTransactionBulkRecategorizeView,
+    BankTransactionUnmatchView,
     banktransaction_link_expense,
     banktransaction_match_transfer,
     BatchMatchExpensesView,
@@ -71,12 +77,15 @@ __all__ = [
     # Journal views
     "JournalEntryListView",
     "JournalEntryDetailView",
+    "ManualJournalEntryCreateView",
+    "JournalEntryReverseView",
     # Payment views
     "PaymentListView",
     "PaymentDetailView",
     "PaymentCreateGeneralView",
     "PaymentCreateFromTransactionView",
     "PaymentCreateForInvoiceView",
+    "PaymentApplyUnappliedView",
     "payment_invoice_fragment",
     # Bank views
     "BankAccountListView",
@@ -90,6 +99,9 @@ __all__ = [
     "BankTransactionCSVImportView",
     "BankTransactionLinkPaymentView",
     "BankTransactionMarkOwnerEquityView",
+    "BankTransactionRecategorizeView",
+    "BankTransactionBulkRecategorizeView",
+    "BankTransactionUnmatchView",
     "banktransaction_link_expense",
     "banktransaction_match_transfer",
     "BatchMatchExpensesView",

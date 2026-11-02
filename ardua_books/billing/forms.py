@@ -90,11 +90,19 @@ class ExpenseForm(forms.ModelForm):
             "description",
             "billable",
             "receipt",
+            "funding_account",
         ]
         widgets = {
             "expense_date": forms.DateInput(attrs={"type": "date"}),
             "description": forms.Textarea(attrs={"rows": 3}),
         }
+        labels = {"funding_account": "Paid from (outside business accounts)"}
+
+    def __init__(self, *args, **kwargs):
+        from accounting.services.expenses import ExpenseLedgerService
+
+        super().__init__(*args, **kwargs)
+        self.fields["funding_account"].queryset = ExpenseLedgerService.funding_accounts()
 
 class InvoiceCreateForm(forms.ModelForm):
     class Meta:

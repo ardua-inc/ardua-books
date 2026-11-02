@@ -14,6 +14,9 @@
             <a href="{% url 'accounting:journal_entries_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" title="Download PDF">PDF</a>
             <a href="{% url 'accounting:journal_entries_csv' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary btn-sm" title="Export to CSV">CSV</a>
         </div>
+        {% if not is_viewer %}
+        <a href="{% url 'accounting:journal_create' %}" class="btn btn-primary btn-sm">New Journal Entry</a>
+        {% endif %}
         <a href="{% url 'accounting:home' %}" class="btn btn-secondary btn-sm">Back to Reports</a>
     </div>
 </div>
@@ -85,7 +88,9 @@
                 <td class="text-left">{{ e.posted_at|date:"m/d/Y" }}</td>
                 <td class="text-left">{{ e.description|default:"—"|truncatewords:15 }}</td>
                 <td class="text-left">
-                    {% if e.source_object %}
+                    {% if e.is_manual %}
+                    <span class="source-badge">{% if e.source_object %}Reversal of {{ e.source_object }}{% else %}Manual{% endif %}</span>
+                    {% elif e.source_object %}
                     <span class="source-badge">{{ e.source_object }}</span>
                     {% else %}
                     <span class="text-muted">—</span>

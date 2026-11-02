@@ -15,10 +15,19 @@
             {% else %}
               {{ object.source_object }}
             {% endif %}
+        {% elif object.is_manual %}
+            Manual entry{% if object.posted_by %} by {{ object.posted_by }}{% endif %}
         {% else %}
             &mdash;
         {% endif %}
   </p>
+
+  {% if reverses %}
+    <p>This entry reverses <a href="{% url 'accounting:journal_detail' reverses.pk %}">JE #{{ reverses.pk }}</a>.</p>
+  {% endif %}
+  {% if reversed_by %}
+    <p>Reversed by <a href="{% url 'accounting:journal_detail' reversed_by.pk %}">JE #{{ reversed_by.pk }}</a>.</p>
+  {% endif %}
 
   <h2>Lines</h2>
   <table>
@@ -39,6 +48,15 @@
       {% endfor %}
     </tbody>
   </table>
+
+  {% if can_reverse and not is_viewer %}
+  <form method="post" action="{% url 'accounting:journal_reverse' object.pk %}" class="mb-3">
+    {% csrf_token %}
+    {{ reverse_form.date.label_tag }} {{ reverse_form.date }}
+    <button class="btn btn-warning btn-sm">Reverse this entry</button>
+    <small class="text-muted d-block">Posts a new entry with every line's debit and credit swapped.</small>
+  </form>
+  {% endif %}
 
   <p><a href="{% url 'accounting:journal_list' %}">Back to Journal</a></p>
 </div>

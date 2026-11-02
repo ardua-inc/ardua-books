@@ -10,6 +10,9 @@ from .views import (
     BankTransactionDetailView,
     BankTransactionLinkPaymentView,
     BankTransactionMarkOwnerEquityView,
+    BankTransactionRecategorizeView,
+    BankTransactionBulkRecategorizeView,
+    BankTransactionUnmatchView,
     BankTransactionCSVImportView,
     banktransaction_link_expense,
     banktransaction_match_transfer,
@@ -17,6 +20,9 @@ from .views import (
     BatchMatchPaymentsView,
     JournalEntryListView,
     JournalEntryDetailView,
+    ManualJournalEntryCreateView,
+    JournalEntryReverseView,
+    PaymentApplyUnappliedView,
     PaymentCreateGeneralView,
     PaymentCreateFromTransactionView,
     PaymentDetailView,
@@ -69,10 +75,13 @@ urlpatterns = [
     path("journal/print/", journal_entries_print, name="journal_entries_print"),
     path("journal/pdf/", journal_entries_pdf, name="journal_entries_pdf"),
     path("journal/csv/", journal_entries_csv, name="journal_entries_csv"),
+    path("journal/new/", ManualJournalEntryCreateView.as_view(), name="journal_create"),
     path("journal/<int:pk>/", JournalEntryDetailView.as_view(), name="journal_detail"),
+    path("journal/<int:pk>/reverse/", JournalEntryReverseView.as_view(), name="journal_reverse"),
     path("payments/<int:pk>/", PaymentDetailView.as_view(), name="payment_detail"),
     path("payments/", PaymentListView.as_view(), name="payment_list"),
     path("payments/create/", PaymentCreateGeneralView.as_view(), name="payment_create_general"),
+    path("payments/<int:pk>/apply/", PaymentApplyUnappliedView.as_view(), name="payment_apply_unapplied"),
     path("payment/invoice-fragment/", payment_invoice_fragment, name="payment_invoice_fragment"),
     path("reports/ar-aging/", ARAgingView.as_view(), name="ar_aging"),
     path("reports/client-balances/", ClientBalanceSummaryView.as_view(), name="client_balance_summary"),
@@ -126,6 +135,24 @@ urlpatterns = [
         "bank-transactions/<int:txn_id>/owner-equity/",
         BankTransactionMarkOwnerEquityView.as_view(),
         name="banktransaction_mark_owner_equity",
+    ),
+
+    path(
+        "bank-transactions/<int:txn_id>/recategorize/",
+        BankTransactionRecategorizeView.as_view(),
+        name="banktransaction_recategorize",
+    ),
+
+    path(
+        "bank-accounts/<int:pk>/recategorize/",
+        BankTransactionBulkRecategorizeView.as_view(),
+        name="banktransaction_bulk_recategorize",
+    ),
+
+    path(
+        "bank-transactions/<int:txn_id>/unmatch/",
+        BankTransactionUnmatchView.as_view(),
+        name="banktransaction_unmatch",
     ),
 
     path(

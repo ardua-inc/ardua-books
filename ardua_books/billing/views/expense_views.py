@@ -7,7 +7,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
-from django.shortcuts import get_object_or_404, render
+from django.db import transaction
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DetailView, DeleteView, TemplateView
 
@@ -194,6 +195,21 @@ class ExpenseUpdateView(ReadOnlyUserMixin, LoginRequiredMixin, UpdateView):
 
 
 class ExpenseDeleteView(ReadOnlyUserMixin, LoginRequiredMixin, DeleteView):
+    """
+    Deleting an expense takes it out of the ledger first (Expense's pre_delete
+    hook): its funding JE is deleted, and a bank transaction matched to it is
+    unmatched. If that cannot be done cleanly nothing is deleted.
+    """
     model = Expense
     template_name = "billing/expense_confirm_delete.html"
     success_url = reverse_lazy("billing:expense_list")
+
+    def form_valid(self, form):
+        try:
+            # Its own savepoint: the delete's transaction is rolled back
+            # whole, even when the request is already inside one.
+            with transaction.atomic():
+                return super().form_valid(form)
+        except ValueError as e:
+            messages.error(self.request, f"Could not delete the expense: {e}")
+            return redirect("billing:expense_detail", pk=self.object.pk)

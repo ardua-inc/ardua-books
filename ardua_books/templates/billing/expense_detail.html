@@ -57,6 +57,16 @@
       </div>
     {% endif %}
 
+    {% if expense.funding_account %}
+      <div class="mt-3 p-3 bg-light rounded">
+        <strong>Paid from (outside business accounts):</strong>
+        {{ expense.funding_account.code }} {{ expense.funding_account.name }}
+        {% if expense.funding_entry %}
+          — <a href="{% url 'accounting:journal_detail' expense.funding_entry.pk %}">JE #{{ expense.funding_entry.pk }}</a>
+        {% endif %}
+      </div>
+    {% endif %}
+
     <p class="mt-3">
       <a href="{% url 'billing:expense_edit' expense.pk %}" class="btn btn-primary">Edit</a>
       <a href="{% url 'billing:expense_delete' expense.pk %}" class="btn btn-secondary">Delete</a>

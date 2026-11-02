@@ -1,5 +1,7 @@
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from django.utils import timezone
 from django.urls import reverse
 from django.core.exceptions import ValidationError
@@ -184,12 +186,61 @@ class Expense(TimeStampedModel):
         help_text="Bank account used to pay this expense",
     )
 
+    # An expense paid outside the business bank and card accounts -- by the
+    # owner personally, say -- is posted DR the category's account / CR
+    # funding_account (e.g. 2500 Loan from Shareholder). funding_entry is that
+    # JE; save() keeps it in step and deleting the expense deletes it (see
+    # accounting.services.expenses). An expense is either funded or linked to
+    # a bank transaction, never both.
+    funding_account = models.ForeignKey(
+        "accounting.ChartOfAccount",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="funded_expenses",
+        help_text="Paid outside the business accounts (e.g. 2500 Loan from Shareholder). "
+                  "Leave empty for an expense paid from a bank or card account.",
+    )
+    funding_entry = models.OneToOneField(
+        "accounting.JournalEntry",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="funded_expense",
+    )
+
     class Meta:
         ordering = ["-expense_date", "-created_at"]
 
     def __str__(self):
         client_name = self.client.name if self.client else "No client"
         return f"{self.expense_date} {client_name} {self.amount}"
+
+    def clean(self):
+        from accounting.services.expenses import ExpenseLedgerService
+
+        super().clean()
+        problem = ExpenseLedgerService.funding_problem(self)
+        if problem:
+            raise ValidationError({"funding_account": problem})
+
+    def save(self, *args, **kwargs):
+        from accounting.services.expenses import ExpenseLedgerService
+
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            ExpenseLedgerService.sync_funding_entry(self, update_fields=kwargs.get("update_fields"))
+
+
+@receiver(pre_delete, sender=Expense)
+def _expense_pre_delete(sender, instance, **kwargs):
+    """Take the expense out of the ledger before it goes, on every delete path
+    (views, admin, queryset deletes): delete its funding JE and unmatch any
+    bank transaction it is linked to. Runs inside the delete's transaction."""
+    from accounting.services.expenses import ExpenseLedgerService
+
+    ExpenseLedgerService.remove_from_ledger(instance)
 
 
 class InvoiceStatus(models.TextChoices):
