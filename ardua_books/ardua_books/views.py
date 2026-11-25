@@ -1,5 +1,9 @@
-from django.shortcuts import render
 from django.conf import settings
+from django.contrib.staticfiles import finders
+from django.http import FileResponse, Http404
+from django.shortcuts import render
+from django.views.decorators.cache import cache_control
+from django.views.decorators.http import require_safe
 
 
 def home(request):
@@ -33,3 +37,20 @@ def about(request):
         "full_version": full_version,
         "commit_date": commit_date,
     })
+
+
+@require_safe
+@cache_control(public=True, max_age=86400)
+def favicon(request):
+    """
+    Serve the favicon at the site root.
+
+    Safari requests /favicon.ico directly, ignoring <link rel="icon"> tags, so
+    this must answer 200 here rather than only under /static/. The file is
+    located with the staticfiles finders (the source tree's static/ dir), so it
+    works the same with or without collectstatic having run.
+    """
+    path = finders.find("favicon/favicon.ico")
+    if not path:
+        raise Http404("favicon not found")
+    return FileResponse(open(path, "rb"), content_type="image/x-icon")
