@@ -4,6 +4,9 @@ All notable changes to Ardua Books are recorded here. The canonical version
 number lives in `ardua_books/ardua_books/settings.py` (`VERSION`) and is
 surfaced by the `/about/` page.
 
+## [3.3.7] - 2026-11-25
+- Add a real favicon (green open book), replacing the 0-byte `static/favicon.ico` placeholder; `/favicon.ico` now answers at the root and every page links the icons.
+
 ## [3.3.6] - 2026-11-01
 
 - New accounts 2500 Loan from Shareholder, 6110 Rent, 6120 Vehicle Expenses and 6130 Repairs & Maintenance, with matching expense categories (data migration; existing codes are left alone).
